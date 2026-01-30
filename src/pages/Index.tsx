@@ -1,6 +1,6 @@
-import { useAuth } from "@/hooks/useAuth";
-import { LoginForm } from "@/components/LoginForm";
-import Dashboard from "@/pages/Dashboard";
+import { useAuth } from "../hooks/useAuth";
+import { LoginForm } from "../components/LoginForm";
+import Dashboard from "./Dashboard";
 
 const Index = () => {
   const { user, loading } = useAuth();

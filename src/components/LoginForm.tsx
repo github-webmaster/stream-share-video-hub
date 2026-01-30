@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useAuth } from "@/hooks/useAuth";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { useAuth } from "../hooks/useAuth";
 import { Play } from "lucide-react";
 
 export function LoginForm() {

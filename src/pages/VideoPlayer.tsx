@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../integrations/supabase/client";
 import { Play, Loader2 } from "lucide-react";
 
 interface Video {
   id: string;
   title: string;
-  storage_path: string;
+  file_url: string;
   views: number;
 }
 
@@ -22,11 +22,12 @@ export default function VideoPlayer() {
 
       const { data, error } = await supabase
         .from("videos")
-        .select("id, title, storage_path, views")
+        .select("id, title, file_url, views")
         .eq("share_id", shareId)
         .single();
 
       if (error || !data) {
+        console.error("[v0] Error fetching video:", error);
         setError(true);
         setLoading(false);
         return;
@@ -44,11 +45,6 @@ export default function VideoPlayer() {
 
     fetchVideo();
   }, [shareId]);
-
-  const getVideoUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from("videos").getPublicUrl(storagePath);
-    return data.publicUrl;
-  };
 
   if (loading) {
     return (
@@ -75,7 +71,7 @@ export default function VideoPlayer() {
       <div className="w-full max-w-4xl">
         <div className="aspect-video overflow-hidden rounded-lg bg-secondary">
           <video
-            src={getVideoUrl(video.storage_path)}
+            src={video.file_url}
             controls
             autoPlay
             className="h-full w-full"

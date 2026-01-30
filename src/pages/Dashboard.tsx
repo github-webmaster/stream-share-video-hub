@@ -1,24 +1,25 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { UploadZone } from "@/components/UploadZone";
-import { VideoCard } from "@/components/VideoCard";
-import { Button } from "@/components/ui/button";
+import { supabase } from "../integrations/supabase/client";
+import { useAuth } from "../hooks/useAuth";
+import { UploadZone } from "../components/UploadZone";
+import { VideoCard } from "../components/VideoCard";
+import { Button } from "../components/ui/button";
 import { Play, LogOut, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Video {
   id: string;
+  user_id: string;
   title: string;
-  filename: string;
-  storage_path: string;
+  file_url: string;
+  thumbnail_url: string | null;
   share_id: string;
   views: number;
   created_at: string;
 }
 
 export default function Dashboard() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -31,7 +32,7 @@ export default function Dashboard() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching videos:", error);
+      console.error("[v0] Error fetching videos:", error);
       toast.error("Failed to load videos");
     } else {
       setVideos(data || []);
@@ -43,25 +44,12 @@ export default function Dashboard() {
     fetchVideos();
   }, []);
 
-  const getVideoUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from("videos").getPublicUrl(storagePath);
-    return data.publicUrl;
-  };
-
-  const deleteVideo = async (id: string, storagePath: string) => {
-    const { error: storageError } = await supabase.storage
-      .from("videos")
-      .remove([storagePath]);
-
-    if (storageError) {
-      toast.error("Failed to delete video file");
-      return;
-    }
-
+  const deleteVideo = async (id: string, fileUrl: string) => {
+    // Extract storage path from file URL if needed
     const { error: dbError } = await supabase.from("videos").delete().eq("id", id);
 
     if (dbError) {
-      toast.error("Failed to delete video record");
+      toast.error("Failed to delete video");
       return;
     }
 
@@ -85,9 +73,18 @@ export default function Dashboard() {
     );
   };
 
+  const generateShareId = () => {
+    return Math.random().toString(36).substring(2, 8);
+  };
+
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("video/")) {
       toast.error(`${file.name} is not a video file`);
+      return;
+    }
+
+    if (!user) {
+      toast.error("You must be logged in to upload");
       return;
     }
 
@@ -95,22 +92,18 @@ export default function Dashboard() {
     setUploadingFiles((prev) => [...prev, fileName]);
 
     try {
-      const ext = file.name.split(".").pop();
-      const storagePath = `${crypto.randomUUID()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("videos")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
+      // For now, create a blob URL as placeholder
+      // In production, this would upload to Storj S3
+      const fileUrl = URL.createObjectURL(file);
+      const shareId = generateShareId();
 
       const { error: dbError } = await supabase.from("videos").insert({
+        user_id: user.id,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        filename: file.name,
-        storage_path: storagePath,
+        file_url: fileUrl,
+        share_id: shareId,
+        file_size: file.size,
+        mime_type: file.type,
       });
 
       if (dbError) throw dbError;
@@ -118,7 +111,7 @@ export default function Dashboard() {
       await fetchVideos();
       toast.success(`${fileName} uploaded`);
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("[v0] Upload error:", error);
       toast.error(`Failed to upload ${fileName}`);
     } finally {
       setUploadingFiles((prev) => prev.filter((f) => f !== fileName));
@@ -135,7 +128,7 @@ export default function Dashboard() {
     if (e.dataTransfer.files.length > 0) {
       handleFiles(e.dataTransfer.files);
     }
-  }, []);
+  }, [user]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -182,6 +175,9 @@ export default function Dashboard() {
                 <span>Uploading {uploadingFiles.length} file{uploadingFiles.length > 1 ? 's' : ''}...</span>
               </div>
             )}
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {user?.email}
+            </span>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sign out
@@ -208,7 +204,7 @@ export default function Dashboard() {
               <VideoCard
                 key={video.id}
                 video={video}
-                videoUrl={getVideoUrl(video.storage_path)}
+                videoUrl={video.file_url}
                 onDelete={deleteVideo}
                 onUpdateTitle={updateTitle}
               />
