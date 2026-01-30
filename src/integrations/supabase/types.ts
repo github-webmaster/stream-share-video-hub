@@ -16,34 +16,52 @@ export type Database = {
     Tables: {
       videos: {
         Row: {
-          created_at: string
-          filename: string
           id: string
-          share_id: string
-          storage_path: string
+          user_id: string
           title: string
-          updated_at: string
+          description: string | null
+          file_url: string
+          thumbnail_url: string | null
+          share_id: string
           views: number
+          duration: number | null
+          file_size: number | null
+          mime_type: string | null
+          is_public: boolean
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          created_at?: string
-          filename: string
           id?: string
-          share_id?: string
-          storage_path: string
+          user_id: string
           title?: string
-          updated_at?: string
+          description?: string | null
+          file_url: string
+          thumbnail_url?: string | null
+          share_id: string
           views?: number
+          duration?: number | null
+          file_size?: number | null
+          mime_type?: string | null
+          is_public?: boolean
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          created_at?: string
-          filename?: string
           id?: string
-          share_id?: string
-          storage_path?: string
+          user_id?: string
           title?: string
-          updated_at?: string
+          description?: string | null
+          file_url?: string
+          thumbnail_url?: string | null
+          share_id?: string
           views?: number
+          duration?: number | null
+          file_size?: number | null
+          mime_type?: string | null
+          is_public?: boolean
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

@@ -1,13 +1,14 @@
 import { useState, useRef } from "react";
 import { Copy, Check, Trash2, Edit2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 interface Video {
   id: string;
+  user_id: string;
   title: string;
-  filename: string;
-  storage_path: string;
+  file_url: string;
+  thumbnail_url: string | null;
   share_id: string;
   views: number;
   created_at: string;
@@ -16,7 +17,7 @@ interface Video {
 interface VideoCardProps {
   video: Video;
   videoUrl: string;
-  onDelete: (id: string, storagePath: string) => void;
+  onDelete: (id: string, fileUrl: string) => void;
   onUpdateTitle: (id: string, title: string) => void;
 }
 
@@ -113,7 +114,7 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
             variant="ghost"
             size="sm"
             className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-            onClick={() => onDelete(video.id, video.storage_path)}
+            onClick={() => onDelete(video.id, video.file_url)}
           >
             <Trash2 className="h-3 w-3" />
           </Button>

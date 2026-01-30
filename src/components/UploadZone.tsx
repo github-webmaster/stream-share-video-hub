@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Upload, Loader2, CheckCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../integrations/supabase/client";
+import { useAuth } from "../hooks/useAuth";
 import { toast } from "sonner";
 
 interface UploadZoneProps {
@@ -13,9 +14,14 @@ interface UploadingFile {
 }
 
 export function UploadZone({ onUploadComplete }: UploadZoneProps) {
+  const { user } = useAuth();
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const generateShareId = () => {
+    return Math.random().toString(36).substring(2, 8);
+  };
 
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("video/")) {
@@ -23,26 +29,27 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
       return;
     }
 
+    if (!user) {
+      toast.error("You must be logged in to upload");
+      return;
+    }
+
     const fileName = file.name;
     setUploadingFiles((prev) => [...prev, { name: fileName, status: "uploading" }]);
 
     try {
-      const ext = file.name.split(".").pop();
-      const storagePath = `${crypto.randomUUID()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("videos")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
+      // For now, create a blob URL as placeholder
+      // In production, this would upload to Storj S3
+      const fileUrl = URL.createObjectURL(file);
+      const shareId = generateShareId();
 
       const { error: dbError } = await supabase.from("videos").insert({
+        user_id: user.id,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        filename: file.name,
-        storage_path: storagePath,
+        file_url: fileUrl,
+        share_id: shareId,
+        file_size: file.size,
+        mime_type: file.type,
       });
 
       if (dbError) throw dbError;
@@ -59,7 +66,7 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
 
       onUploadComplete();
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("[v0] Upload error:", error);
       setUploadingFiles((prev) =>
         prev.map((f) =>
           f.name === fileName ? { ...f, status: "error" } : f
@@ -83,7 +90,7 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
     if (e.dataTransfer.files.length > 0) {
       handleFiles(e.dataTransfer.files);
     }
-  }, []);
+  }, [user]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -140,11 +147,11 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
                 <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
               )}
               {file.status === "complete" && (
-                <CheckCircle className="h-4 w-4 text-success shrink-0" />
+                <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
               )}
               <span className="truncate">{file.name}</span>
               {file.status === "complete" && (
-                <span className="text-success ml-auto shrink-0">Done</span>
+                <span className="text-green-500 ml-auto shrink-0">Done</span>
               )}
             </div>
           ))}
