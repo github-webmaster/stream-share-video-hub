@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Copy, Check, Trash2, Edit2 } from "lucide-react";
+import { Copy, Check, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -50,7 +50,7 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
 
   return (
     <div className="group overflow-hidden rounded-lg bg-card border border-border">
-      <div 
+      <div
         className="relative aspect-video bg-secondary cursor-pointer"
         onClick={() => window.open(shareUrl, '_blank')}
       >
@@ -72,7 +72,7 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
           {video.views} views
         </div>
       </div>
-      
+
       <div className="p-3 space-y-2">
         {editing ? (
           <Input
@@ -84,14 +84,14 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
             className="h-7 text-sm bg-secondary"
           />
         ) : (
-          <h3 
+          <h3
             className="text-sm font-medium truncate cursor-pointer hover:text-primary"
             onClick={startEdit}
           >
             {video.title}
           </h3>
         )}
-        
+
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -102,17 +102,16 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
             {copied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
             {copied ? "Copied" : "Copy Link"}
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
             className="flex-1 h-7 px-2 text-xs"
-            onClick={startEdit}
+            onClick={() => window.open(shareUrl, '_blank')}
           >
-            <Edit2 className="h-3 w-3 mr-1" />
-            Edit Title
+            Open Video
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
