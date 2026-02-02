@@ -24,17 +24,20 @@ export default function VideoPlayer() {
       if (!shareId) return;
 
       try {
+        console.log("[v0] Fetching video for shareId:", shareId);
+
         const { data, error: fetchError } = await supabase
           .rpc("get_public_video_by_share_id", { p_share_id: shareId })
           .single();
 
         if (fetchError || !data) {
-          console.error("[v0] Error fetching video:", fetchError);
+          console.error("[v0] Error fetching video from RPC:", fetchError);
           setError(true);
           setLoading(false);
           return;
         }
 
+        console.log("[v0] Video data retrieved successfully:", data.title);
         setVideo(data);
 
         // Get public URL for video
@@ -115,7 +118,7 @@ export default function VideoPlayer() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center pt-4 sm:pt-8 px-0 sm:px-4">
+      <main className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-[1280px] mx-auto">
           {/* Video Container with fluid scaling and max constraints */}
           <div
@@ -140,7 +143,7 @@ export default function VideoPlayer() {
           </div>
 
           {/* Video Info Section - YouTube Style */}
-          <div className="mt-4 px-4 sm:px-0 pb-12">
+          <div className="mt-6">
             <h1 className="text-xl sm:text-2xl font-bold line-clamp-2 leading-tight">
               {video.title}
             </h1>
@@ -148,19 +151,6 @@ export default function VideoPlayer() {
               <span>{video.views + 1} views</span>
               <span>•</span>
               <span>StreamShare Hub</span>
-            </div>
-
-            <div className="mt-4 h-[1px] bg-border w-full" />
-
-            {/* Channel/Description Placeholder for YT look */}
-            <div className="mt-6 flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
-                S
-              </div>
-              <div>
-                <p className="font-semibold text-sm">StreamShare Hub</p>
-                <p className="text-xs text-muted-foreground">Uploaded with simple video upload app</p>
-              </div>
             </div>
           </div>
         </div>
