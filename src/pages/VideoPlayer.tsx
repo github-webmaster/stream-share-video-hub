@@ -27,7 +27,7 @@ export default function VideoPlayer() {
         console.log("[v0] Fetching video for shareId:", shareId);
 
         const { data, error: fetchError } = await supabase
-          .rpc("get_public_video_by_share_id", { p_share_id: shareId })
+          .rpc("get_public_video_by_share_id", { share_id_param: shareId })
           .single();
 
         if (fetchError || !data) {

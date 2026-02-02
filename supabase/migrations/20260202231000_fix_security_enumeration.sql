@@ -1,8 +1,10 @@
--- Drop existing function to ensure we have a fresh state
+-- 1. CLEANUP: Remove any existing variants to avoid signature conflicts
 DROP FUNCTION IF EXISTS public.get_public_video_by_share_id(text);
 
--- Re-create the secure function with refined logic
-CREATE OR REPLACE FUNCTION public.get_public_video_by_share_id(p_share_id text)
+-- 2. CREATE: Use a unique parameter name that won't conflict with column names
+-- PostgREST (Supabase) sometimes fails to map parameters if they look like columns
+-- We'll name it 'share_id_param' for clarity.
+CREATE OR REPLACE FUNCTION public.get_public_video_by_share_id(share_id_param text)
 RETURNS TABLE (
   id uuid,
   title text,
@@ -21,15 +23,14 @@ BEGIN
     v.storage_path, 
     v.views
   FROM public.videos v
-  WHERE v.share_id = p_share_id;
+  WHERE v.share_id = share_id_param;
 END;
 $$;
 
--- CRITICAL: Explicitly grant execute permission to anon and authenticated roles
--- This is often the missing piece that causes "Video not found" (function access denied)
+-- 3. PERMISSIONS: Ensure the public can actually call it
 GRANT EXECUTE ON FUNCTION public.get_public_video_by_share_id(text) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_public_video_by_share_id(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_public_video_by_share_id(text) TO service_role;
 
--- Log that the migration was applied successfully
-COMMENT ON FUNCTION public.get_public_video_by_share_id(text) IS 'Securely fetches video metadata by share_id, preventing table enumeration.';
+-- 4. CACHE RELOAD: Sometimes Supabase needs a nudge to see new functions
+-- Running a trivial NOTIFY can sometimes help trigger a schema refresh
+NOTIFY pgrst, 'reload schema';
