@@ -4,8 +4,16 @@ import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
 import { VideoCard } from "../components/VideoCard";
 import { Button } from "../components/ui/button";
-import { Play, LogOut, Upload, Loader2 } from "lucide-react";
+import { Play, Loader2, Upload, LogOut, Copy, Check, Trash2, Edit2, User } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 
 interface Video {
   id: string;
@@ -215,13 +223,31 @@ export default function Dashboard() {
 
           {/* Right: User actions */}
           <div className="flex items-center justify-end gap-3">
-            <span className="text-sm text-muted-foreground hidden sm:inline truncate max-w-[150px]">
+            <span className="text-sm text-muted-foreground hidden sm:inline truncate max-w-[150px] font-medium">
               {user?.email}
             </span>
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign out
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <User className="h-4 w-4" />
+                  My Account
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Settings</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/profile" className="flex items-center cursor-pointer">
+                    <User className="h-4 w-4 mr-2" />
+                    My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive cursor-pointer">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>

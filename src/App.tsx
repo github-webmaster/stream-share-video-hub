@@ -7,17 +7,20 @@ import Index from "./pages/Index";
 import VideoPlayer from "./pages/VideoPlayer";
 import NotFound from "./pages/NotFound";
 
+import Profile from "./pages/Profile";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner position="top-center" />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/v/:shareId" element={<VideoPlayer />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
