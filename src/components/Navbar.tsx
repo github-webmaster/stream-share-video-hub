@@ -23,9 +23,9 @@ export function Navbar({ centerContent }: NavbarProps) {
             <div className="mx-auto grid max-w-7xl grid-cols-3 items-center px-4 py-3">
                 {/* Left: Logo */}
                 <div className="flex items-center">
-                    <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit hover:opacity-80 transition-opacity">
+                    <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit active:opacity-70">
                         <Play className="h-5 w-5 fill-primary text-primary" />
-                        <span>VideoShare</span>
+                        <span>StreamShare Hub</span>
                     </Link>
                 </div>
 
@@ -39,20 +39,19 @@ export function Navbar({ centerContent }: NavbarProps) {
                     {user ? (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="gap-2">
+                                <Button variant="ghost" className="gap-2">
                                     <User className="h-4 w-4" />
                                     My Account
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
                                 <DropdownMenuItem asChild>
                                     <Link to="/profile" className="flex items-center cursor-pointer">
                                         <User className="h-4 w-4 mr-2" />
                                         My Profile
                                     </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive cursor-pointer">
                                     <LogOut className="h-4 w-4 mr-2" />
                                     Sign out
@@ -60,7 +59,9 @@ export function Navbar({ centerContent }: NavbarProps) {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     ) : (
-                        <div className="h-9 w-24"></div> // Spacer to maintain grid symmetry when not logged in
+                        <Button asChild variant="default">
+                            <Link to="/">Sign up for free</Link>
+                        </Button>
                     )}
                 </div>
             </div>
