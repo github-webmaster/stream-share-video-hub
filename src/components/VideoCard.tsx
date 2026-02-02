@@ -50,7 +50,10 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
 
   return (
     <div className="group overflow-hidden rounded-lg bg-card border border-border">
-      <div className="relative aspect-video bg-secondary">
+      <div 
+        className="relative aspect-video bg-secondary cursor-pointer"
+        onClick={() => window.open(shareUrl, '_blank')}
+      >
         <video
           ref={videoRef}
           src={videoUrl}
