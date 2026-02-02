@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
 import { VideoCard } from "../components/VideoCard";
@@ -165,9 +166,8 @@ export default function Dashboard() {
 
   return (
     <div
-      className={`min-h-screen bg-background transition-colors ${
-        isDragOver ? "bg-primary/5" : ""
-      }`}
+      className={`min-h-screen bg-background transition-colors ${isDragOver ? "bg-primary/5" : ""
+        }`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -191,14 +191,17 @@ export default function Dashboard() {
       )}
 
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2 text-lg font-semibold">
+        <div className="mx-auto grid max-w-7xl grid-cols-3 items-center px-4 py-3">
+          {/* Left: Logo */}
+          <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit hover:opacity-80 transition-opacity">
             <Play className="h-5 w-5 fill-primary text-primary" />
             <span>VideoShare</span>
-          </div>
-          <div className="flex items-center gap-3">
+          </Link>
+
+          {/* Center: Upload controls */}
+          <div className="flex justify-center">
             {isUploading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Uploading {uploadingFiles.length} file{uploadingFiles.length > 1 ? 's' : ''}...</span>
               </div>
@@ -208,7 +211,11 @@ export default function Dashboard() {
                 Upload video
               </Button>
             )}
-            <span className="text-sm text-muted-foreground hidden sm:inline">
+          </div>
+
+          {/* Right: User actions */}
+          <div className="flex items-center justify-end gap-3">
+            <span className="text-sm text-muted-foreground hidden sm:inline truncate max-w-[150px]">
               {user?.email}
             </span>
             <Button variant="ghost" size="sm" onClick={signOut}>

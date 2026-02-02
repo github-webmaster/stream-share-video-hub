@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
+import { useAuth } from "../hooks/useAuth";
 import { Play, Loader2 } from "lucide-react";
 
 interface Video {
@@ -11,6 +12,7 @@ interface Video {
 }
 
 export default function VideoPlayer() {
+  const { user } = useAuth();
   const { shareId } = useParams<{ shareId: string }>();
   const [video, setVideo] = useState<Video | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -57,74 +59,112 @@ export default function VideoPlayer() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex min-h-screen flex-col bg-background">
+        <header className="border-b border-border bg-background/95 backdrop-blur px-4 py-3">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex items-center gap-2 text-lg font-semibold">
+              <Play className="h-5 w-5 fill-primary text-primary" />
+              <span>VideoShare</span>
+            </div>
+          </div>
+        </header>
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
 
   if (error || !video || !videoUrl) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
-        <Play className="h-12 w-12 text-muted-foreground mb-4" />
-        <h1 className="text-xl font-semibold">Video not found</h1>
-        <p className="text-muted-foreground mt-2 max-w-sm">
-          This video may have been deleted or the link is invalid.
-        </p>
+      <div className="flex min-h-screen flex-col bg-background">
+        <header className="border-b border-border bg-background/95 backdrop-blur px-4 py-3">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex items-center gap-2 text-lg font-semibold">
+              <Play className="h-5 w-5 fill-primary text-primary" />
+              <span>VideoShare</span>
+            </div>
+          </div>
+        </header>
+        <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+          <Play className="h-12 w-12 text-muted-foreground mb-4" />
+          <h1 className="text-xl font-semibold">Video not found</h1>
+          <p className="text-muted-foreground mt-2 max-w-sm">
+            This video may have been deleted or the link is invalid.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-background pt-4 sm:pt-8 px-0 sm:px-4">
-      <div className="w-full max-w-[1280px] mx-auto">
-        {/* Video Container with fluid scaling and max constraints */}
-        <div
-          className="relative w-full overflow-hidden bg-black shadow-2xl sm:rounded-xl"
-          style={{
-            maxHeight: '720px',
-            height: 'calc(100vw * 9 / 16)', // Maintain aspect ratio fluidly
-            maxWidth: '1280px'
-          }}
-        >
-          <video
-            src={videoUrl}
-            controls
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 py-3">
+        <div className="mx-auto max-w-7xl flex items-center justify-between">
+          {user ? (
+            <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit hover:opacity-80 transition-opacity">
+              <Play className="h-5 w-5 fill-primary text-primary" />
+              <span>VideoShare</span>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2 text-lg font-semibold">
+              <Play className="h-5 w-5 fill-primary text-primary" />
+              <span>VideoShare</span>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main className="flex-1 flex flex-col items-center pt-4 sm:pt-8 px-0 sm:px-4">
+        <div className="w-full max-w-[1280px] mx-auto">
+          {/* Video Container with fluid scaling and max constraints */}
+          <div
+            className="relative w-full overflow-hidden bg-black shadow-2xl sm:rounded-xl"
             style={{
-              maxWidth: '1280px',
-              maxHeight: '720px'
+              maxHeight: '720px',
+              height: 'calc(100vw * 9 / 16)', // Maintain aspect ratio fluidly
+              maxWidth: '1280px'
             }}
-          />
-        </div>
-
-        {/* Video Info Section - YouTube Style */}
-        <div className="mt-4 px-4 sm:px-0 pb-12">
-          <h1 className="text-xl sm:text-2xl font-bold line-clamp-2 leading-tight">
-            {video.title}
-          </h1>
-          <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground font-medium">
-            <span>{video.views + 1} views</span>
-            <span>•</span>
-            <span>StreamShare Hub</span>
+          >
+            <video
+              src={videoUrl}
+              controls
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+              style={{
+                maxWidth: '1280px',
+                maxHeight: '720px'
+              }}
+            />
           </div>
 
-          <div className="mt-4 h-[1px] bg-border w-full" />
-
-          {/* Channel/Description Placeholder for YT look */}
-          <div className="mt-6 flex items-start gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
-              S
+          {/* Video Info Section - YouTube Style */}
+          <div className="mt-4 px-4 sm:px-0 pb-12">
+            <h1 className="text-xl sm:text-2xl font-bold line-clamp-2 leading-tight">
+              {video.title}
+            </h1>
+            <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground font-medium">
+              <span>{video.views + 1} views</span>
+              <span>•</span>
+              <span>StreamShare Hub</span>
             </div>
-            <div>
-              <p className="font-semibold text-sm">StreamShare Hub</p>
-              <p className="text-xs text-muted-foreground">Uploaded with simple video upload app</p>
+
+            <div className="mt-4 h-[1px] bg-border w-full" />
+
+            {/* Channel/Description Placeholder for YT look */}
+            <div className="mt-6 flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
+                S
+              </div>
+              <div>
+                <p className="font-semibold text-sm">StreamShare Hub</p>
+                <p className="text-xs text-muted-foreground">Uploaded with simple video upload app</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
