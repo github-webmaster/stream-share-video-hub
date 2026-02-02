@@ -7,8 +7,8 @@ interface Video {
   id: string;
   user_id: string;
   title: string;
-  file_url: string;
-  thumbnail_url: string | null;
+  storage_path: string;
+  filename: string;
   share_id: string;
   views: number;
   created_at: string;
@@ -17,7 +17,7 @@ interface Video {
 interface VideoCardProps {
   video: Video;
   videoUrl: string;
-  onDelete: (id: string, fileUrl: string) => void;
+  onDelete: (id: string, storagePath: string) => void;
   onUpdateTitle: (id: string, title: string) => void;
 }
 
@@ -93,7 +93,7 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="flex-1 h-7 px-2 text-xs"
             onClick={copyLink}
           >
             {copied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
@@ -103,20 +103,21 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="flex-1 h-7 px-2 text-xs"
             onClick={startEdit}
           >
             <Edit2 className="h-3 w-3 mr-1" />
-            Edit
+            Edit Title
           </Button>
           
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-            onClick={() => onDelete(video.id, video.file_url)}
+            className="flex-1 h-7 px-2 text-xs text-destructive hover:text-destructive"
+            onClick={() => onDelete(video.id, video.storage_path)}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3 w-3 mr-1" />
+            Delete
           </Button>
         </div>
       </div>
