@@ -1,7 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
-import { UploadZone } from "../components/UploadZone";
 import { VideoCard } from "../components/VideoCard";
 import { Button } from "../components/ui/button";
 import { Play, LogOut, Upload, Loader2 } from "lucide-react";
@@ -11,8 +10,8 @@ interface Video {
   id: string;
   user_id: string;
   title: string;
-  file_url: string;
-  thumbnail_url: string | null;
+  storage_path: string;
+  filename: string;
   share_id: string;
   views: number;
   created_at: string;
@@ -24,6 +23,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchVideos = async () => {
     const { data, error } = await supabase
@@ -35,7 +35,7 @@ export default function Dashboard() {
       console.error("[v0] Error fetching videos:", error);
       toast.error("Failed to load videos");
     } else {
-      setVideos(data || []);
+      setVideos((data as Video[]) || []);
     }
     setLoading(false);
   };
@@ -44,17 +44,31 @@ export default function Dashboard() {
     fetchVideos();
   }, []);
 
-  const deleteVideo = async (id: string, fileUrl: string) => {
-    // Extract storage path from file URL if needed
-    const { error: dbError } = await supabase.from("videos").delete().eq("id", id);
+  const deleteVideo = async (id: string, storagePath: string) => {
+    try {
+      // Delete from storage first
+      const { error: storageError } = await supabase.storage
+        .from("videos")
+        .remove([storagePath]);
 
-    if (dbError) {
+      if (storageError) {
+        console.error("[v0] Storage delete error:", storageError);
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase.from("videos").delete().eq("id", id);
+
+      if (dbError) {
+        toast.error("Failed to delete video");
+        return;
+      }
+
+      setVideos((prev) => prev.filter((v) => v.id !== id));
+      toast.success("Video deleted");
+    } catch (error) {
+      console.error("[v0] Delete error:", error);
       toast.error("Failed to delete video");
-      return;
     }
-
-    setVideos((prev) => prev.filter((v) => v.id !== id));
-    toast.success("Video deleted");
   };
 
   const updateTitle = async (id: string, title: string) => {
@@ -73,10 +87,6 @@ export default function Dashboard() {
     );
   };
 
-  const generateShareId = () => {
-    return Math.random().toString(36).substring(2, 8);
-  };
-
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("video/")) {
       toast.error(`${file.name} is not a video file`);
@@ -92,18 +102,22 @@ export default function Dashboard() {
     setUploadingFiles((prev) => [...prev, fileName]);
 
     try {
-      // For now, create a blob URL as placeholder
-      // In production, this would upload to Storj S3
-      const fileUrl = URL.createObjectURL(file);
-      const shareId = generateShareId();
+      // Upload to Supabase Storage
+      const fileExt = file.name.split(".").pop();
+      const storagePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
 
+      const { error: uploadError } = await supabase.storage
+        .from("videos")
+        .upload(storagePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Insert into database
       const { error: dbError } = await supabase.from("videos").insert({
         user_id: user.id,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        file_url: fileUrl,
-        share_id: shareId,
-        file_size: file.size,
-        mime_type: file.type,
+        filename: file.name,
+        storage_path: storagePath,
       });
 
       if (dbError) throw dbError;
@@ -144,6 +158,11 @@ export default function Dashboard() {
 
   const isUploading = uploadingFiles.length > 0;
 
+  const getVideoUrl = (storagePath: string) => {
+    const { data } = supabase.storage.from("videos").getPublicUrl(storagePath);
+    return data.publicUrl;
+  };
+
   return (
     <div
       className={`min-h-screen bg-background transition-colors ${
@@ -153,6 +172,15 @@ export default function Dashboard() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/*"
+        multiple
+        className="hidden"
+        onChange={(e) => e.target.files && handleFiles(e.target.files)}
+      />
+
       {isDragOver && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
           <div className="text-center">
@@ -169,11 +197,16 @@ export default function Dashboard() {
             <span>VideoShare</span>
           </div>
           <div className="flex items-center gap-3">
-            {isUploading && (
+            {isUploading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Uploading {uploadingFiles.length} file{uploadingFiles.length > 1 ? 's' : ''}...</span>
               </div>
+            ) : (
+              <Button size="sm" onClick={() => inputRef.current?.click()}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload video
+              </Button>
             )}
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {user?.email}
@@ -187,8 +220,6 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 space-y-6">
-        <UploadZone onUploadComplete={fetchVideos} />
-
         {loading ? (
           <div className="text-center text-muted-foreground py-12">
             <Loader2 className="h-6 w-6 animate-spin mx-auto" />
@@ -196,7 +227,7 @@ export default function Dashboard() {
           </div>
         ) : videos.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
-            No videos yet. Upload your first video above!
+            No videos yet. Upload your first video!
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -204,7 +235,7 @@ export default function Dashboard() {
               <VideoCard
                 key={video.id}
                 video={video}
-                videoUrl={video.file_url}
+                videoUrl={getVideoUrl(video.storage_path)}
                 onDelete={deleteVideo}
                 onUpdateTitle={updateTitle}
               />

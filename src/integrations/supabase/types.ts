@@ -23,6 +23,7 @@ export type Database = {
           storage_path: string
           title: string
           updated_at: string
+          user_id: string | null
           views: number
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           storage_path: string
           title?: string
           updated_at?: string
+          user_id?: string | null
           views?: number
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           storage_path?: string
           title?: string
           updated_at?: string
+          user_id?: string | null
           views?: number
         }
         Relationships: []
