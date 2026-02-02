@@ -23,9 +23,7 @@ export default function VideoPlayer() {
 
       try {
         const { data, error: fetchError } = await supabase
-          .from("videos")
-          .select("id, title, storage_path, views")
-          .eq("share_id", shareId)
+          .rpc("get_public_video_by_share_id", { p_share_id: shareId })
           .single();
 
         if (fetchError || !data) {
