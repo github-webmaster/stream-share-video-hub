@@ -78,20 +78,54 @@ export default function VideoPlayer() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <div className="w-full max-w-4xl">
-        <div className="aspect-video overflow-hidden rounded-lg bg-secondary">
+    <div className="flex min-h-screen flex-col items-center bg-background pt-4 sm:pt-8 px-0 sm:px-4">
+      <div className="w-full max-w-[1280px] mx-auto">
+        {/* Video Container with fluid scaling and max constraints */}
+        <div
+          className="relative w-full overflow-hidden bg-black shadow-2xl sm:rounded-xl"
+          style={{
+            maxHeight: '720px',
+            height: 'calc(100vw * 9 / 16)', // Maintain aspect ratio fluidly
+            maxWidth: '1280px'
+          }}
+        >
           <video
             src={videoUrl}
             controls
             autoPlay
-            className="h-full w-full"
+            playsInline
+            className="w-full h-full object-cover"
+            style={{
+              maxWidth: '1280px',
+              maxHeight: '720px'
+            }}
           />
         </div>
-        <h1 className="mt-4 text-lg sm:text-xl font-semibold text-center">{video.title}</h1>
-        <p className="text-sm text-muted-foreground mt-1 text-center">
-          {video.views + 1} views
-        </p>
+
+        {/* Video Info Section - YouTube Style */}
+        <div className="mt-4 px-4 sm:px-0 pb-12">
+          <h1 className="text-xl sm:text-2xl font-bold line-clamp-2 leading-tight">
+            {video.title}
+          </h1>
+          <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground font-medium">
+            <span>{video.views + 1} views</span>
+            <span>•</span>
+            <span>StreamShare Hub</span>
+          </div>
+
+          <div className="mt-4 h-[1px] bg-border w-full" />
+
+          {/* Channel/Description Placeholder for YT look */}
+          <div className="mt-6 flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
+              S
+            </div>
+            <div>
+              <p className="font-semibold text-sm">StreamShare Hub</p>
+              <p className="text-xs text-muted-foreground">Uploaded with simple video upload app</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
