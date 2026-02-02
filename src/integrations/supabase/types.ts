@@ -52,7 +52,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_video_views: {
+        Args: { video_share_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
