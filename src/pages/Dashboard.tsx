@@ -2,18 +2,11 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
+import { Navbar } from "../components/Navbar";
 import { VideoCard } from "../components/VideoCard";
 import { Button } from "../components/ui/button";
 import { Play, Loader2, Upload, LogOut, Copy, Check, Trash2, Edit2, User } from "lucide-react";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
 
 interface Video {
   id: string;
@@ -198,59 +191,21 @@ export default function Dashboard() {
         </div>
       )}
 
-      <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto grid max-w-7xl grid-cols-3 items-center px-4 py-3">
-          {/* Left: Logo */}
-          <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit hover:opacity-80 transition-opacity">
-            <Play className="h-5 w-5 fill-primary text-primary" />
-            <span>VideoShare</span>
-          </Link>
-
-          {/* Center: Upload controls */}
-          <div className="flex justify-center">
-            {isUploading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Uploading {uploadingFiles.length} file{uploadingFiles.length > 1 ? 's' : ''}...</span>
-              </div>
-            ) : (
-              <Button size="sm" onClick={() => inputRef.current?.click()}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload video
-              </Button>
-            )}
-          </div>
-
-          {/* Right: User actions */}
-          <div className="flex items-center justify-end gap-3">
-            <span className="text-sm text-muted-foreground hidden sm:inline truncate max-w-[150px] font-medium">
-              {user?.email}
-            </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <User className="h-4 w-4" />
-                  My Account
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/profile" className="flex items-center cursor-pointer">
-                    <User className="h-4 w-4 mr-2" />
-                    My Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive cursor-pointer">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
+      <Navbar
+        centerContent={
+          isUploading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Uploading {uploadingFiles.length} file{uploadingFiles.length > 1 ? 's' : ''}...</span>
+            </div>
+          ) : (
+            <Button size="sm" onClick={() => inputRef.current?.click()}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload video
+            </Button>
+          )
+        }
+      />
 
       <main className="mx-auto max-w-7xl px-4 py-6 space-y-6">
         {loading ? (

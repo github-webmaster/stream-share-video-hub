@@ -2,16 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
-import { Play, Loader2, User, LogOut } from "lucide-react";
-import { Button } from "../components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+import { Play, Loader2 } from "lucide-react";
+import { Navbar } from "../components/Navbar";
 
 interface Video {
   id: string;
@@ -72,14 +64,7 @@ export default function VideoPlayer() {
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <header className="border-b border-border bg-background/95 backdrop-blur px-4 py-3">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex items-center gap-2 text-lg font-semibold">
-              <Play className="h-5 w-5 fill-primary text-primary" />
-              <span>VideoShare</span>
-            </div>
-          </div>
-        </header>
+        <Navbar />
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -90,14 +75,7 @@ export default function VideoPlayer() {
   if (error || !video || !videoUrl) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <header className="border-b border-border bg-background/95 backdrop-blur px-4 py-3">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex items-center gap-2 text-lg font-semibold">
-              <Play className="h-5 w-5 fill-primary text-primary" />
-              <span>VideoShare</span>
-            </div>
-          </div>
-        </header>
+        <Navbar />
         <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
           <Play className="h-12 w-12 text-muted-foreground mb-4" />
           <h1 className="text-xl font-semibold">Video not found</h1>
@@ -111,46 +89,7 @@ export default function VideoPlayer() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 py-3">
-        <div className="mx-auto max-w-7xl flex items-center justify-between">
-          {user ? (
-            <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit hover:opacity-80 transition-opacity">
-              <Play className="h-5 w-5 fill-primary text-primary" />
-              <span>VideoShare</span>
-            </Link>
-          ) : (
-            <div className="flex items-center gap-2 text-lg font-semibold">
-              <Play className="h-5 w-5 fill-primary text-primary" />
-              <span>VideoShare</span>
-            </div>
-          )}
-
-          {user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <User className="h-4 w-4" />
-                  My Account
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/profile" className="flex items-center cursor-pointer">
-                    <User className="h-4 w-4 mr-2" />
-                    My Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive cursor-pointer">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </header>
+      <Navbar />
 
       <main className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-[1280px] mx-auto">

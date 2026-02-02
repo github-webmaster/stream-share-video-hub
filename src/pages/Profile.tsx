@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { Navbar } from "../components/Navbar";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../integrations/supabase/client";
 import { Button } from "../components/ui/button";
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
 import { Separator } from "../components/ui/separator";
-import { Play, User, Lock, CreditCard, ChevronLeft } from "lucide-react";
+import { User, Lock, CreditCard, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistance } from "date-fns";
 
@@ -51,34 +52,13 @@ export default function Profile() {
         }
     };
 
-    const handleChangePassword = async () => {
-        // This sends a password reset email to the user's email
-        const { error } = await supabase.auth.resetPasswordForEmail(user?.email || "", {
-            redirectTo: `${window.location.origin}/profile?reset=true`,
-        });
-
-        if (error) {
-            toast.error(error.message);
-        } else {
-            toast.success("Password reset email sent!");
-        }
-    };
-
     const joinedDate = user?.created_at
         ? formatDistance(new Date(user.created_at), new Date(), { addSuffix: true })
         : "some time ago";
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 py-3">
-                <div className="mx-auto max-w-7xl flex items-center justify-between">
-                    <Link to="/" className="flex items-center gap-2 text-lg font-semibold hover:opacity-80 transition-opacity">
-                        <Play className="h-5 w-5 fill-primary text-primary" />
-                        <span>VideoShare</span>
-                    </Link>
-                    <Button variant="ghost" size="sm" onClick={signOut}>Logout</Button>
-                </div>
-            </header>
+            <Navbar />
 
             <main className="mx-auto max-w-5xl px-4 py-8">
                 <Link to="/" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 w-fit transition-colors">
@@ -135,12 +115,12 @@ export default function Profile() {
                                                     {user?.email} <span className="opacity-70">(Joined {joinedDate})</span>
                                                 </p>
                                             </div>
-                                            <button
-                                                onClick={handleChangePassword}
+                                            <Link
+                                                to="/password"
                                                 className="text-primary hover:underline font-semibold"
                                             >
                                                 Change Password
-                                            </button>
+                                            </Link>
                                         </div>
                                     </div>
                                 </CardContent>

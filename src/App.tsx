@@ -8,6 +8,7 @@ import VideoPlayer from "./pages/VideoPlayer";
 import NotFound from "./pages/NotFound";
 
 import Profile from "./pages/Profile";
+import ChangePassword from "./pages/ChangePassword";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/v/:shareId" element={<VideoPlayer />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/password" element={<ChangePassword />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
