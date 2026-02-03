@@ -217,8 +217,9 @@ export default function Dashboard() {
             </div>
           ) : (
             <Button
+              variant="ghost"
               onClick={() => inputRef.current?.click()}
-              className="rounded-full px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-105 active:scale-95 bg-primary text-primary-foreground font-semibold"
+              className="px-6 transition-all font-semibold text-white/70 hover:text-white"
             >
               <Upload className="h-4 w-4 mr-2" />
               Upload video
@@ -227,7 +228,7 @@ export default function Dashboard() {
         }
       />
 
-      <main className="relative z-10 mx-auto max-w-[1240px] px-8 sm:px-12 lg:px-16 py-12 space-y-12">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-12 space-y-12">
         {loading ? (
           <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 backdrop-blur-xl rounded-[10px] border border-white/5">
             <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
