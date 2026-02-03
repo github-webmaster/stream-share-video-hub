@@ -92,12 +92,15 @@ export default function Dashboard() {
 
         if (uploadError) throw uploadError;
 
-        const { error: dbError } = await supabase.from("videos").insert({
+        const videoData = {
           title: file.name.split(".")[0],
           filename: file.name,
           storage_path: filePath,
           user_id: user?.id,
-        });
+        };
+        
+        console.log("Inserting video data:", videoData);
+        const { error: dbError } = await supabase.from("videos").insert(videoData);
 
         if (dbError) throw dbError;
         setUploadingFiles(prev => prev.filter(name => name !== file.name));
