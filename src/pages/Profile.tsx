@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../integrations/supabase/client";
@@ -26,6 +26,7 @@ type Section = "profile" | "privacy" | "billing";
 
 export default function Profile() {
     const { user } = useAuth();
+    const location = useLocation();
     const [activeSection, setActiveSection] = useState<Section>("profile");
     const [defaultVisibility, setDefaultVisibility] = useState<string>("public");
     const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
@@ -36,23 +37,46 @@ export default function Profile() {
     const [newEmail, setNewEmail] = useState("");
     const [emailPassword, setEmailPassword] = useState("");
 
+    // Handle initial hash and hash changes
     useEffect(() => {
-        // Handle deep-linking via hash
         const handleHash = () => {
             const hash = window.location.hash.replace("#", "");
             if (hash === "billing" || hash === "privacy" || hash === "profile") {
                 setActiveSection(hash as Section);
+
+                // Give React time to render the section before scrolling
+                setTimeout(() => {
+                    const element = document.getElementById(hash);
+                    if (element) {
+                        element.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                }, 100);
             }
         };
 
         handleHash();
         window.addEventListener("hashchange", handleHash);
+        return () => window.removeEventListener("hashchange", handleHash);
+    }, []);
 
+    // Also watch location.hash via React Router for intra-route Link clicks
+    useEffect(() => {
+        const hash = location.hash.replace("#", "");
+        if (hash === "billing" || hash === "privacy" || hash === "profile") {
+            setActiveSection(hash as Section);
+            setTimeout(() => {
+                const element = document.getElementById(hash);
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }, 100);
+        }
+    }, [location.hash]);
+
+    useEffect(() => {
         if (user) {
             fetchProfile();
         }
-
-        return () => window.removeEventListener("hashchange", handleHash);
     }, [user]);
 
     const fetchProfile = async () => {
@@ -119,7 +143,10 @@ export default function Profile() {
                     {/* Sidebar */}
                     <aside className="w-full md:w-64 space-y-1">
                         <button
-                            onClick={() => setActiveSection("profile")}
+                            onClick={() => {
+                                setActiveSection("profile");
+                                window.location.hash = "profile";
+                            }}
                             className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === "profile" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
                                 }`}
                         >
@@ -127,7 +154,10 @@ export default function Profile() {
                             My Profile
                         </button>
                         <button
-                            onClick={() => setActiveSection("privacy")}
+                            onClick={() => {
+                                setActiveSection("privacy");
+                                window.location.hash = "privacy";
+                            }}
                             className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === "privacy" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
                                 }`}
                         >
@@ -135,7 +165,10 @@ export default function Profile() {
                             Privacy & Security
                         </button>
                         <button
-                            onClick={() => setActiveSection("billing")}
+                            onClick={() => {
+                                setActiveSection("billing");
+                                window.location.hash = "billing";
+                            }}
                             className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === "billing" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
                                 }`}
                         >
@@ -147,7 +180,7 @@ export default function Profile() {
                     {/* Content */}
                     <div className="flex-1">
                         {activeSection === "profile" && (
-                            <Card className="bg-[#1d1d1f] border-white/5 shadow-2xl overflow-hidden">
+                            <Card id="profile" className="bg-[#1d1d1f] border-white/5 shadow-2xl overflow-hidden scroll-mt-20">
                                 <CardHeader className="p-8">
                                     <CardTitle className="text-3xl font-bold">Profile</CardTitle>
                                     <CardDescription className="text-muted-foreground">
@@ -159,7 +192,7 @@ export default function Profile() {
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="font-semibold text-sm">Login</p>
+                                                <p className="font-semibold text-sm" id="user-email-label">Login</p>
                                                 <p className="text-muted-foreground text-sm">
                                                     {user?.email} <span className="opacity-70">(Joined {joinedDate})</span>
                                                 </p>
@@ -230,7 +263,7 @@ export default function Profile() {
                         )}
 
                         {activeSection === "privacy" && (
-                            <Card className="bg-[#1d1d1f] border-white/5 shadow-2xl overflow-hidden">
+                            <Card id="privacy" className="bg-[#1d1d1f] border-white/5 shadow-2xl overflow-hidden scroll-mt-20">
                                 <CardHeader className="p-8">
                                     <CardTitle className="text-3xl font-bold">Privacy & Security</CardTitle>
                                     <CardDescription className="text-muted-foreground">

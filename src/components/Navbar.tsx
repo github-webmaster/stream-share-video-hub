@@ -6,7 +6,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
@@ -68,7 +67,7 @@ export function Navbar({ centerContent }: NavbarProps) {
                                         viewBox="0 0 17 18"
                                         fill="none"
                                         xmlns="http://www.w3.org/2000/svg"
-                                        className="text-[#ff6b6b] transition-transform group-hover:scale-110"
+                                        className="text-[#ff6b6b] transition-transform group-hover:scale-110 relative -top-[10px]"
                                     >
                                         <path
                                             d="M4.73461 12.0222L13.8933 2.86667M1 9L2.5 1M8.11354 17L16 14.5"
@@ -87,8 +86,6 @@ export function Navbar({ centerContent }: NavbarProps) {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48">
-                                        <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem asChild>
                                             <Link to="/profile" className="flex items-center cursor-pointer">
                                                 <User className="h-4 w-4 mr-2" />
