@@ -38,33 +38,37 @@ export function LoginForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <Input
-              type="email"
-              placeholder="Username / Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="bg-white/5 border-white/10 h-12 text-center text-base rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="bg-white/5 border-white/10 h-12 text-center text-base rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
-            />
-          </div>
+          <Input
+            type="email"
+            placeholder="Adam@Von.Enterprises"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="bg-white/5 border-white/10 h-12 text-center text-base rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
+          />
+          <Input
+            type="password"
+            placeholder="Your secret password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            className="bg-white/5 border-white/10 h-12 text-center text-base rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
+          />
 
           {error && (
             <p className="text-base text-destructive text-center font-medium">{error}</p>
           )}
 
-          <Button type="submit" className="w-full text-base h-12 rounded-[10px] font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.01] active:scale-[0.99] bg-primary text-primary-foreground" disabled={loading}>
-            {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
-          </Button>
+          <div className={`transition-all duration-300 ease-in-out ${email.includes('@') ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
+            <Button
+              type="submit"
+              className="w-full text-base h-12 rounded-[10px] font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.01] active:scale-[0.99] bg-primary text-primary-foreground"
+              disabled={loading}
+            >
+              {loading ? "Loading..." : "Login"}
+            </Button>
+          </div>
         </form>
 
         <button
