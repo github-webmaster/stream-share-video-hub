@@ -153,24 +153,35 @@ export default function Dashboard() {
     Array.from(files).forEach((file) => uploadFile(file));
   };
 
+  const dragCounter = useRef(0);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    dragCounter.current = 0;
     setIsDragOver(false);
     if (e.dataTransfer.files.length > 0) {
       handleFiles(e.dataTransfer.files);
     }
   }, [user]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(true);
+    dragCounter.current++;
+    if (dragCounter.current === 1) {
+      setIsDragOver(true);
+    }
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (e.currentTarget === e.target) {
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
       setIsDragOver(false);
     }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
   }, []);
 
   const isUploading = uploadingFiles.length > 0;
@@ -182,9 +193,9 @@ export default function Dashboard() {
 
   return (
     <div
-      className={`min-h-screen relative overflow-x-hidden ${isDragOver ? "bg-primary/5" : ""
-        }`}
+      className="min-h-screen relative overflow-x-hidden"
       onDrop={handleDrop}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >

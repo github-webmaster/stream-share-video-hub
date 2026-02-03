@@ -102,18 +102,6 @@
     background-color: #0e0e10;
   }
 
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background-image: url('/assets/subtle-wallpaper-2.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    pointer-events: none;
-  }
-
   /* Extreme Performance: Remove all transitions for instant feel */
   * {
     transition: none !important;

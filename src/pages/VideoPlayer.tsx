@@ -91,7 +91,7 @@ export default function VideoPlayer() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 space-y-6">
+      <main className="flex-1 flex flex-col justify-center relative z-10 mx-auto max-w-7xl px-4 space-y-6">
         <div className="w-full mx-auto">
           {/* Video Container with fluid scaling and max constraints */}
           <div
