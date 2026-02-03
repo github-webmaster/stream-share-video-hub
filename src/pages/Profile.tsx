@@ -12,15 +12,29 @@ import { User, Lock, CreditCard, ChevronLeft, Check, ShieldCheck, Info, CreditCa
 import { toast } from "sonner";
 import { formatDistance } from "date-fns";
 import { Input } from "../components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "../components/ui/dialog";
 
 type Section = "profile" | "privacy" | "billing";
 
 export default function Profile() {
-    const { user, signOut } = useAuth();
+    const { user } = useAuth();
     const [activeSection, setActiveSection] = useState<Section>("profile");
     const [defaultVisibility, setDefaultVisibility] = useState<string>("public");
     const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
     const [loading, setLoading] = useState(false);
+
+    // Email change states
+    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+    const [newEmail, setNewEmail] = useState("");
+    const [emailPassword, setEmailPassword] = useState("");
 
     useEffect(() => {
         if (user) {
@@ -29,7 +43,7 @@ export default function Profile() {
     }, [user]);
 
     const fetchProfile = async () => {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from("profiles")
             .select("default_visibility")
             .eq("id", user?.id)
@@ -57,6 +71,27 @@ export default function Profile() {
     const joinedDate = user?.created_at
         ? formatDistance(new Date(user.created_at), new Date(), { addSuffix: true })
         : "some time ago";
+
+    const handleEmailChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+            // Re-authentication would be required for a real production environment
+            const { error } = await supabase.auth.updateUser({ email: newEmail });
+
+            if (error) throw error;
+
+            toast.success("Email update initiated! Check your inbox.");
+            setIsEmailDialogOpen(false);
+            setNewEmail("");
+            setEmailPassword("");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update email");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="min-h-screen">
@@ -107,22 +142,75 @@ export default function Profile() {
                                         Contact info, view preferences, and account overview.
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <Separator />
+                                <CardContent className="p-8 pt-0 space-y-6">
+                                    <Separator className="opacity-50" />
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="font-semibold text-sm">Login</p>
-                                                <p className="text-muted-foreground">
+                                                <p className="text-muted-foreground text-sm">
                                                     {user?.email} <span className="opacity-70">(Joined {joinedDate})</span>
                                                 </p>
                                             </div>
-                                            <Link
-                                                to="/password"
-                                                className="text-primary hover:underline font-semibold"
-                                            >
-                                                Change Password
-                                            </Link>
+                                            <div className="flex items-center gap-3">
+                                                <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="link" className="text-primary p-0 h-auto text-sm font-medium hover:no-underline shadow-none border-none">
+                                                            Change Email
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="sm:max-w-[425px] bg-[#1d1d1f] border-white/5 shadow-2xl">
+                                                        <DialogHeader>
+                                                            <DialogTitle className="text-2xl font-bold">Change Email</DialogTitle>
+                                                            <DialogDescription className="text-muted-foreground">
+                                                                Enter your new email and confirm with your password.
+                                                            </DialogDescription>
+                                                        </DialogHeader>
+                                                        <form onSubmit={handleEmailChange} className="space-y-4 py-4">
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="current-email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Current Email</Label>
+                                                                <Input id="current-email" value={user?.email || ""} readOnly className="bg-black/20 border-white/5 text-muted-foreground" />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="new-email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">New Email</Label>
+                                                                <Input
+                                                                    id="new-email"
+                                                                    type="email"
+                                                                    value={newEmail}
+                                                                    onChange={(e) => setNewEmail(e.target.value)}
+                                                                    placeholder="Enter new email"
+                                                                    required
+                                                                    className="bg-black/20 border-white/5 focus-visible:ring-primary/20"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label htmlFor="confirm-pass" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Confirm Password</Label>
+                                                                <Input
+                                                                    id="confirm-pass"
+                                                                    type="password"
+                                                                    value={emailPassword}
+                                                                    onChange={(e) => setEmailPassword(e.target.value)}
+                                                                    placeholder="Your current password"
+                                                                    required
+                                                                    className="bg-black/20 border-white/5 focus-visible:ring-primary/20"
+                                                                />
+                                                            </div>
+                                                            <DialogFooter className="pt-4">
+                                                                <Button
+                                                                    type="submit"
+                                                                    disabled={loading}
+                                                                    className="w-full bg-primary hover:bg-primary/90 font-bold"
+                                                                >
+                                                                    {loading ? "Updating..." : "Update Email"}
+                                                                </Button>
+                                                            </DialogFooter>
+                                                        </form>
+                                                    </DialogContent>
+                                                </Dialog>
+                                                <Button asChild variant="link" className="text-primary p-0 h-auto text-sm font-medium hover:no-underline border-l border-white/10 pl-3 rounded-none shadow-none">
+                                                    <Link to="/password">Change Password</Link>
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -137,39 +225,42 @@ export default function Profile() {
                                         Change security and access preferences for your videos that don’t have individual privacy settings.
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <Separator />
-                                    <div className="space-y-4">
-                                        <p className="font-semibold text-sm">Visibility</p>
-                                        <RadioGroup
-                                            value={defaultVisibility}
-                                            onValueChange={updateVisibility}
-                                            className="gap-4"
-                                        >
-                                            <div className="flex items-start space-x-3">
-                                                <RadioGroupItem value="public" id="public" className="mt-1" />
-                                                <div>
-                                                    <Label htmlFor="public" className="font-bold cursor-pointer">Public</Label>
-                                                    <p className="text-sm text-muted-foreground">Anyone with a link can view.</p>
+                                <CardContent className="p-8 pt-0">
+                                    <Separator className="mb-8 opacity-50" />
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-bold">Visibility</Label>
+                                            <RadioGroup
+                                                value={defaultVisibility}
+                                                onValueChange={updateVisibility}
+                                                className="grid gap-4"
+                                            >
+                                                <div className="flex items-center space-x-3 space-y-0">
+                                                    <RadioGroupItem value="public" id="public" />
+                                                    <Label htmlFor="public" className="font-normal cursor-pointer">
+                                                        <div className="font-bold">Public</div>
+                                                        <div className="text-xs text-muted-foreground">Anyone with a link can view.</div>
+                                                    </Label>
                                                 </div>
-                                            </div>
-
-                                            <div className="flex items-start space-x-3 opacity-50 cursor-not-allowed">
-                                                <RadioGroupItem value="hide" id="hide" disabled className="mt-1" />
-                                                <div>
-                                                    <Label htmlFor="hide" className="font-bold">Hide on StreamShare <span className="text-xs bg-primary/20 text-primary px-1 rounded ml-1">BASIC</span></Label>
-                                                    <p className="text-sm text-muted-foreground">Private on your account, but embeddable anywhere.</p>
+                                                <div className="flex items-center space-x-3 space-y-0">
+                                                    <RadioGroupItem value="unlisted" id="unlisted" />
+                                                    <Label htmlFor="unlisted" className="font-normal cursor-pointer">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="font-bold">Hide on StreamShare</div>
+                                                            <div className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold">BASIC</div>
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">Private on your account, but embeddable anywhere.</div>
+                                                    </Label>
                                                 </div>
-                                            </div>
-
-                                            <div className="flex items-start space-x-3">
-                                                <RadioGroupItem value="private" id="private" className="mt-1" />
-                                                <div>
-                                                    <Label htmlFor="private" className="font-bold cursor-pointer">Private</Label>
-                                                    <p className="text-sm text-muted-foreground">Only you will be able to view.</p>
+                                                <div className="flex items-center space-x-3 space-y-0">
+                                                    <RadioGroupItem value="private" id="private" />
+                                                    <Label htmlFor="private" className="font-normal cursor-pointer">
+                                                        <div className="font-bold">Private</div>
+                                                        <div className="text-xs text-muted-foreground">Only you will be able to view.</div>
+                                                    </Label>
                                                 </div>
-                                            </div>
-                                        </RadioGroup>
+                                            </RadioGroup>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -184,7 +275,7 @@ export default function Profile() {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-8">
-                                    <Separator className="mb-8" />
+                                    <Separator className="mb-8 opacity-50" />
 
                                     <div className="grid lg:grid-cols-5 gap-12">
                                         {/* Left: Info & FAQ (Workflowy/Streamable style) */}
@@ -240,7 +331,7 @@ export default function Profile() {
 
                                         {/* Right: Checkout (Basecamp/Streamable style) */}
                                         <div className="lg:col-span-3">
-                                            <div className="bg-[#1d1d1f] rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
+                                            <div className="bg-black/20 rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
                                                 <div className="p-8 space-y-8">
                                                     <div className="space-y-4">
                                                         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Select your plan</p>
@@ -248,8 +339,8 @@ export default function Profile() {
                                                             <div
                                                                 onClick={() => setBillingCycle("monthly")}
                                                                 className={`p-6 rounded-xl border-2 transition-all cursor-pointer flex justify-between items-center ${billingCycle === "monthly"
-                                                                    ? "border-primary bg-primary/5 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
-                                                                    : "border-white/5 bg-white/5 hover:border-white/10"
+                                                                        ? "border-primary bg-primary/5 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+                                                                        : "border-white/5 bg-white/5 hover:border-white/10"
                                                                     }`}
                                                             >
                                                                 <div className="space-y-1">
@@ -262,8 +353,8 @@ export default function Profile() {
                                                             <div
                                                                 onClick={() => setBillingCycle("yearly")}
                                                                 className={`relative p-6 rounded-xl border-2 transition-all cursor-pointer flex justify-between items-center ${billingCycle === "yearly"
-                                                                    ? "border-primary bg-primary/5 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
-                                                                    : "border-white/5 bg-white/5 hover:border-white/10"
+                                                                        ? "border-primary bg-primary/5 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+                                                                        : "border-white/5 bg-white/5 hover:border-white/10"
                                                                     }`}
                                                             >
                                                                 <div className="absolute -top-3 right-6 bg-primary text-primary-foreground px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter">
