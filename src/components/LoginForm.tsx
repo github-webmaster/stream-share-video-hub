@@ -38,7 +38,7 @@ export function LoginForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             type="email"
-            placeholder="Bruce@Von.Enterprises"
+            placeholder="Adam@Von.Enterprises"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

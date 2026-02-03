@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { Copy, Check, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Copy, Check, Trash2, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -28,7 +29,8 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const shareUrl = `${window.location.origin}/v/${video.share_id}`;
+  const sharePath = `/v/${video.share_id}`;
+  const shareUrl = `${window.location.origin}${sharePath}`;
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -49,10 +51,11 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
   };
 
   return (
-    <div className="group overflow-hidden rounded-lg bg-card border border-border">
-      <div
-        className="relative aspect-video bg-secondary cursor-pointer"
-        onClick={() => window.open(shareUrl, '_blank')}
+    <div className="group overflow-hidden rounded-lg bg-card border border-border flex flex-col h-full">
+      <Link
+        to={sharePath}
+        target="_blank"
+        className="relative aspect-video bg-secondary cursor-pointer block"
       >
         <video
           ref={videoRef}
@@ -71,54 +74,59 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
         <div className="absolute right-2 top-2 rounded bg-background/80 px-1.5 py-0.5 text-xs">
           {video.views} views
         </div>
-      </div>
+      </Link>
 
-      <div className="p-3 space-y-2">
-        {editing ? (
-          <Input
-            ref={inputRef}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={saveTitle}
-            onKeyDown={(e) => e.key === "Enter" && saveTitle()}
-            className="h-7 text-sm bg-secondary"
-          />
-        ) : (
-          <h3
-            className="text-sm font-medium truncate cursor-pointer hover:text-primary"
-            onClick={startEdit}
-          >
-            {video.title}
-          </h3>
-        )}
+      <div className="p-3 space-y-3 flex flex-col flex-1">
+        <div className="min-h-[2.5rem] flex items-center justify-center">
+          {editing ? (
+            <Input
+              ref={inputRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => e.key === "Enter" && saveTitle()}
+              className="h-8 text-center text-sm bg-secondary"
+            />
+          ) : (
+            <h3
+              className="text-sm font-medium text-center line-clamp-2 cursor-pointer hover:text-primary transition-colors px-2"
+              onClick={startEdit}
+            >
+              {video.title}
+            </h3>
+          )}
+        </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 mt-auto">
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 h-7 px-2 text-xs"
+            className="flex-1 h-8 px-2 text-xs gap-1.5"
             onClick={copyLink}
           >
-            {copied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Copied" : "Copy Link"}
           </Button>
 
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 h-7 px-2 text-xs"
-            onClick={() => window.open(shareUrl, '_blank')}
+            className="flex-1 h-8 px-2 text-xs gap-1.5"
+            asChild
           >
-            Open Video
+            <Link to={sharePath} target="_blank">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open
+            </Link>
           </Button>
 
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 h-7 px-2 text-xs text-destructive hover:text-destructive"
+            className="flex-1 h-8 px-2 text-xs text-destructive hover:text-destructive gap-1.5"
             onClick={() => onDelete(video.id, video.storage_path)}
           >
-            <Trash2 className="h-3 w-3 mr-1" />
+            <Trash2 className="h-3.5 w-3.5" />
             Delete
           </Button>
         </div>
