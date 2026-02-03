@@ -74,35 +74,20 @@ export default function Profile() {
     }, [location.hash]);
 
     useEffect(() => {
-        if (user) {
-            fetchProfile();
+        // Load saved visibility preference from localStorage
+        const saved = localStorage.getItem(`visibility_pref_${user?.id}`);
+        if (saved) {
+            setDefaultVisibility(saved);
         }
     }, [user]);
 
-    const fetchProfile = async () => {
-        const { data } = await supabase
-            .from("profiles")
-            .select("default_visibility")
-            .eq("id", user?.id)
-            .single();
-
-        if (data) {
-            setDefaultVisibility(data.default_visibility);
-        }
-    };
-
     const updateVisibility = async (value: string) => {
         setDefaultVisibility(value);
-        const { error } = await supabase
-            .from("profiles")
-            .update({ default_visibility: value })
-            .eq("id", user?.id);
-
-        if (error) {
-            toast.error("Failed to update privacy settings");
-        } else {
-            toast.success("Privacy settings updated");
+        // Store preference locally until profiles table exists
+        if (user?.id) {
+            localStorage.setItem(`visibility_pref_${user.id}`, value);
         }
+        toast.success("Privacy settings updated");
     };
 
     const joinedDate = user?.created_at

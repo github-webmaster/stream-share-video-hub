@@ -28,23 +28,23 @@ export default function VideoPlayer() {
         console.log("[v0] Fetching video for shareId:", shareId);
 
         const { data, error: fetchError } = await supabase
-          .rpc("get_public_video_by_share_id", { share_id_param: shareId })
-          .single();
+          .rpc("get_public_video_by_share_id", { share_id_param: shareId });
 
-        if (fetchError || !data) {
+        if (fetchError || !data || data.length === 0) {
           console.error("[v0] Error fetching video from RPC:", fetchError);
           setError(true);
           setLoading(false);
           return;
         }
 
-        console.log("[v0] Video data retrieved successfully:", data.title);
-        setVideo(data);
+        const videoData = data[0] as Video;
+        console.log("[v0] Video data retrieved successfully:", videoData.title);
+        setVideo(videoData);
 
         // Get public URL for video
         const { data: urlData } = supabase.storage
           .from("videos")
-          .getPublicUrl(data.storage_path);
+          .getPublicUrl(videoData.storage_path);
         setVideoUrl(urlData.publicUrl);
 
         setLoading(false);
