@@ -23,23 +23,23 @@ export function Navbar({ centerContent }: NavbarProps) {
             <div className="mx-auto max-w-7xl px-4 py-3">
                 <div className="flex items-center justify-between w-full gap-4">
                     {/* Left: Logo */}
-                    <div className="flex items-center flex-shrink-0">
-                        <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit active:opacity-70">
+                    <div className="flex-1 flex justify-start">
+                        <Link to="/" className="flex items-center gap-2 text-lg font-semibold active:opacity-70 whitespace-nowrap">
                             <Play className="h-5 w-5 fill-primary text-primary" />
-                            <span className="hidden xs:inline sm:inline">StreamShare Hub</span>
+                            <span className="hidden xs:inline">StreamShare Hub</span>
                             <span className="xs:hidden">Hub</span>
                         </Link>
                     </div>
 
-                    {/* Center: Upload controls - Now integrated into the main row */}
+                    {/* Center: Upload controls - Perfectly Centered */}
                     {centerContent && (
-                        <div className="flex-1 flex justify-center max-w-[200px] sm:max-w-none">
+                        <div className="flex-shrink-0 flex justify-center">
                             {centerContent}
                         </div>
                     )}
 
                     {/* Right: User actions */}
-                    <div className="flex items-center justify-end gap-2 sm:gap-3 flex-shrink-0">
+                    <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3">
                         {user ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
