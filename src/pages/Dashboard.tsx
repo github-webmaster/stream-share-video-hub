@@ -267,7 +267,7 @@ export default function Dashboard() {
             <Button
               variant="ghost"
               onClick={() => inputRef.current?.click()}
-              className="px-2 sm:px-6 transition-all font-semibold text-white/70 hover:text-white"
+              className="px-4 sm:px-6 transition-all font-semibold text-white/70 hover:text-white"
             >
               <Upload className="h-4 w-4 mr-0 sm:mr-2" />
               <span className="hidden sm:inline">Upload video</span>
