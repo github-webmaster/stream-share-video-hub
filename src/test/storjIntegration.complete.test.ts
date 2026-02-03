@@ -208,7 +208,7 @@ describe("STORJ S3 Integration - Complete Feature Set", () => {
       expect(cannotRetry).toBe(false);
     });
 
-    it("should have exponential backoff delay", () => {
+    it("should have linear backoff delay for retries", () => {
       const baseDelay = 1000; // 1 second
       
       const delay1 = baseDelay * 1; // 1 second
