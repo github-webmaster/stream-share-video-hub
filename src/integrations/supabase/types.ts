@@ -20,39 +20,36 @@ export type Database = {
           filename: string
           id: string
           share_id: string
+          size: number | null
           storage_path: string
           title: string
           updated_at: string
           user_id: string | null
           views: number
-          visibility: string
-          size: number | null
         }
         Insert: {
           created_at?: string
           filename: string
           id?: string
           share_id?: string
+          size?: number | null
           storage_path: string
           title?: string
           updated_at?: string
           user_id?: string | null
           views?: number
-          visibility?: string
-          size?: number | null
         }
         Update: {
           created_at?: string
           filename?: string
           id?: string
           share_id?: string
+          size?: number | null
           storage_path?: string
           title?: string
           updated_at?: string
           user_id?: string | null
           views?: number
-          visibility?: string
-          size?: number | null
         }
         Relationships: []
       }
@@ -61,6 +58,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_public_video_by_share_id: {
+        Args: { share_id_param: string }
+        Returns: {
+          id: string
+          storage_path: string
+          title: string
+          views: number
+        }[]
+      }
       increment_video_views: {
         Args: { video_share_id: string }
         Returns: undefined
