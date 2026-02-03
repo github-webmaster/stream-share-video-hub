@@ -103,11 +103,23 @@
     min-height: 100dvh;
     overflow: hidden;
     position: relative;
+    /* Hide scrollbars */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
+  }
+
+  /* Hide scrollbars for Chrome/Safari */
+  body::-webkit-scrollbar,
+  html::-webkit-scrollbar {
+    display: none;
   }
 
   html {
     overflow: hidden;
     height: 100%;
+    scrollbar-width: none;
   }
 
   /* Extreme Performance: Remove all transitions for instant feel */
@@ -116,6 +128,16 @@
     animation-duration: 0.001s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001s !important;
+  }
+
+  /* Hide scrollbars for all elements universally */
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  *::-webkit-scrollbar {
+    display: none !important;
   }
 
   /* Except for specific functional animations like loaders if needed */

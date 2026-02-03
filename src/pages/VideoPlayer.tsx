@@ -123,8 +123,8 @@ export default function VideoPlayer() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#0e0e10] group/viewer">
-      <div className="opacity-25 group-hover/viewer:opacity-100 transition-opacity duration-500">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#0e0e10]">
+      <div className="opacity-25 hover:opacity-100 transition-opacity duration-500 z-50">
         <Navbar />
       </div>
 
@@ -153,7 +153,7 @@ export default function VideoPlayer() {
           </div>
 
           {/* Video Info Section - YouTube Style */}
-          <div className="mt-4 sm:mt-6 px-4 sm:px-0 opacity-25 group-hover/viewer:opacity-100 transition-opacity duration-500">
+          <div className="mt-4 sm:mt-6 px-4 sm:px-0 opacity-25 hover:opacity-100 transition-opacity duration-500">
             <h1 className="text-lg sm:text-2xl font-bold line-clamp-2 leading-tight text-white">
               {video.title}
             </h1>

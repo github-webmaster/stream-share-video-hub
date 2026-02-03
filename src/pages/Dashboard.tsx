@@ -298,7 +298,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-auto">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-auto">
               {paginatedVideos.map((video) => (
                 <VideoCard
                   key={video.id}
