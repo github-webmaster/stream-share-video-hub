@@ -98,9 +98,10 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
           >
             <video
               ref={videoRef}
-              src={videoUrl}
+              src={`${videoUrl}#t=0.001`}
               className="h-full w-full object-cover"
               muted
+              playsInline
               preload="metadata"
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}

@@ -21,29 +21,31 @@ export function Navbar({ centerContent }: NavbarProps) {
     return (
         <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0e0e10]/80 backdrop-blur-xl">
             <div className="mx-auto max-w-7xl px-4 py-3">
-                {/* Desktop and Tablet: Standard 3-column Grid */}
-                <div className="hidden sm:grid grid-cols-3 items-center w-full">
+                <div className="flex items-center justify-between w-full gap-4">
                     {/* Left: Logo */}
-                    <div className="flex items-center">
+                    <div className="flex items-center flex-shrink-0">
                         <Link to="/" className="flex items-center gap-2 text-lg font-semibold w-fit active:opacity-70">
                             <Play className="h-5 w-5 fill-primary text-primary" />
-                            <span>StreamShare Hub</span>
+                            <span className="hidden xs:inline sm:inline">StreamShare Hub</span>
+                            <span className="xs:hidden">Hub</span>
                         </Link>
                     </div>
 
-                    {/* Center: Upload controls */}
-                    <div className="flex justify-center">
-                        {centerContent}
-                    </div>
+                    {/* Center: Upload controls - Now integrated into the main row */}
+                    {centerContent && (
+                        <div className="flex-1 flex justify-center max-w-[200px] sm:max-w-none">
+                            {centerContent}
+                        </div>
+                    )}
 
                     {/* Right: User actions */}
-                    <div className="flex items-center justify-end gap-3">
+                    <div className="flex items-center justify-end gap-2 sm:gap-3 flex-shrink-0">
                         {user ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="gap-2">
+                                    <Button variant="ghost" size="sm" className="gap-2 h-9 px-2 sm:px-4">
                                         <User className="h-4 w-4" />
-                                        My Account
+                                        <span className="hidden sm:inline">My Account</span>
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
@@ -61,56 +63,11 @@ export function Navbar({ centerContent }: NavbarProps) {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <Button asChild variant="default">
-                                <Link to="/">Sign up for free</Link>
+                            <Button asChild variant="default" size="sm">
+                                <Link to="/">Sign up</Link>
                             </Button>
                         )}
                     </div>
-                </div>
-
-                {/* Mobile: Two-Row Stacked Layout */}
-                <div className="flex sm:hidden flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                        <Link to="/" className="flex items-center gap-2 text-md font-semibold active:opacity-70">
-                            <Play className="h-5 w-5 fill-primary text-primary" />
-                            <span>StreamShare</span>
-                        </Link>
-
-                        <div className="flex items-center gap-2">
-                            {user ? (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-9 px-3">
-                                            <User className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48">
-                                        <DropdownMenuItem asChild>
-                                            <Link to="/profile" className="flex items-center">
-                                                <User className="h-4 w-4 mr-2" />
-                                                My Profile
-                                            </Link>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={signOut} className="text-destructive">
-                                            <LogOut className="h-4 w-4 mr-2" />
-                                            Sign out
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            ) : (
-                                <Button asChild variant="default" size="sm">
-                                    <Link to="/">Sign in</Link>
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {centerContent && (
-                        <div className="flex justify-center w-full animate-in fade-in slide-in-from-top-2 duration-300">
-                            {centerContent}
-                        </div>
-                    )}
                 </div>
             </div>
         </header>
