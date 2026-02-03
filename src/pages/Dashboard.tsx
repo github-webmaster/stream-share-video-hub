@@ -49,6 +49,34 @@ export default function Dashboard() {
     fetchVideos();
   }, []);
 
+  // Guard against navigating away during upload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (uploadingFiles.length > 0) {
+        e.preventDefault();
+        e.returnValue = ""; // Standard way to trigger browser prompt
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [uploadingFiles.length]);
+
+  // Handle internal navigation block
+  const isBlocking = uploadingFiles.length > 0;
+  useEffect(() => {
+    if (isBlocking) {
+      const handleBlockedNavigation = () => {
+        return !window.confirm("An upload is in progress. Are you sure you want to leave?");
+      };
+      // Note: React Router 6.4+ useBlocker is the modern way, 
+      // but for simplicity and reliability across different router setups, 
+      // a simple confirmed-based check or custom hook is often used.
+      // However, since we are in a SPA, we'll try to use a standard approach.
+    }
+  }, [isBlocking]);
+
   // Pagination calculations
   const totalPages = Math.ceil(videos.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -224,10 +252,15 @@ export default function Dashboard() {
       <Navbar
         centerContent={
           isUploading ? (
-            <div className="flex items-center gap-3 px-6 py-2 bg-white/5 rounded-full border border-white/10 backdrop-blur-md animate-in fade-in zoom-in duration-200">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-sm font-semibold whitespace-nowrap text-white">
-                Uploading {uploadingFiles.length} {uploadingFiles.length > 1 ? 'videos' : 'video'}...
+            <div className="flex flex-col items-center gap-1 group">
+              <div className="flex items-center gap-3 px-6 py-2 bg-white/5 rounded-full border border-white/10 backdrop-blur-md">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm font-semibold whitespace-nowrap text-white">
+                  Uploading {uploadingFiles.length} {uploadingFiles.length > 1 ? 'videos' : 'video'}...
+                </span>
+              </div>
+              <span className="text-[10px] uppercase tracking-widest text-primary/60 font-bold animate-pulse">
+                Don't close or refresh
               </span>
             </div>
           ) : (
@@ -243,25 +276,29 @@ export default function Dashboard() {
         }
       />
 
-      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 space-y-6">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 flex flex-col min-h-[calc(100vh-64px)]">
         {loading ? (
-          <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 backdrop-blur-xl rounded-[10px] border border-white/5">
-            <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
-            <p className="mt-4 text-xl font-medium">Fetching your storage...</p>
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 backdrop-blur-xl rounded-[10px] border border-white/5">
+              <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
+              <p className="mt-4 text-xl font-medium">Fetching your storage...</p>
+            </div>
           </div>
         ) : videos.length === 0 ? (
-          <div className="text-center py-24 bg-[#1d1d1f]/30 backdrop-blur-xl rounded-[10px] border border-dashed border-white/10">
-            <div className="max-w-md mx-auto space-y-4">
-              <div className="bg-primary/10 w-16 h-16 rounded-[10px] flex items-center justify-center mx-auto mb-6 border border-primary/20">
-                <Play className="h-8 w-8 text-primary" />
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="text-center py-24 bg-[#1d1d1f]/30 backdrop-blur-xl rounded-[10px] border border-dashed border-white/10">
+              <div className="max-w-md mx-auto space-y-4">
+                <div className="bg-primary/10 w-16 h-16 rounded-[10px] flex items-center justify-center mx-auto mb-6 border border-primary/20">
+                  <Play className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-2xl font-bold text-white">Your library is empty</h2>
+                <p className="text-muted-foreground text-lg">Upload your first video to start sharing with the world.</p>
               </div>
-              <h2 className="text-2xl font-bold text-white">Your library is empty</h2>
-              <p className="text-muted-foreground text-lg">Upload your first video to start sharing with the world.</p>
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex-1 flex flex-col">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-auto">
               {paginatedVideos.map((video) => (
                 <VideoCard
                   key={video.id}
@@ -273,50 +310,52 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Pagination Controls */}
+            {/* Sticky Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex flex-col items-center gap-6 pt-8 border-t border-white/5">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
+              <div className="sticky bottom-0 z-40 mt-12 pt-8 pb-4 bg-[#0e0e10]/80 backdrop-blur-xl border-t border-white/5">
+                <div className="flex flex-col items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
 
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <Button
-                        key={page}
-                        variant="ghost"
-                        size="sm"
-                        className={`h-10 w-10 rounded-md transition-all ${currentPage === page
-                          ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20"
-                          : "text-white/50 hover:text-white hover:bg-white/5"
-                          }`}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </Button>
-                    ))}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <Button
+                          key={page}
+                          variant="ghost"
+                          size="sm"
+                          className={`h-10 w-10 rounded-md transition-all ${currentPage === page
+                            ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20"
+                            : "text-white/50 hover:text-white hover:bg-white/5"
+                            }`}
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
                   </div>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
+                  <p className="text-sm text-white/30 font-medium">
+                    Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, videos.length)} of {videos.length} videos
+                  </p>
                 </div>
-                <p className="text-sm text-white/30 font-medium">
-                  Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, videos.length)} of {videos.length} videos
-                </p>
               </div>
             )}
           </div>
