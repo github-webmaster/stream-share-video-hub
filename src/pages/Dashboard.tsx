@@ -96,7 +96,6 @@ export default function Dashboard() {
           title: file.name.split(".")[0],
           storage_path: filePath,
           user_id: user?.id,
-          size: file.size,
         });
 
         if (dbError) throw dbError;
