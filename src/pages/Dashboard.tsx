@@ -182,7 +182,7 @@ export default function Dashboard() {
 
   return (
     <div
-      className={`min-h-screen bg-black relative overflow-x-hidden ${isDragOver ? "bg-primary/5" : ""
+      className={`min-h-screen relative overflow-x-hidden ${isDragOver ? "bg-primary/5" : ""
         }`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -278,8 +278,8 @@ export default function Dashboard() {
                         variant="ghost"
                         size="sm"
                         className={`h-10 w-10 rounded-md transition-all ${currentPage === page
-                            ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20"
-                            : "text-white/50 hover:text-white hover:bg-white/5"
+                          ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20"
+                          : "text-white/50 hover:text-white hover:bg-white/5"
                           }`}
                         onClick={() => setCurrentPage(page)}
                       >

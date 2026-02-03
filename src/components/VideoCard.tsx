@@ -89,7 +89,7 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
         </div>
 
         <div className="p-8 space-y-6 flex flex-col flex-1">
-          <div className="min-h-[2.5rem] flex items-center justify-center pointer-events-auto">
+          <div className="h-[4rem] flex items-center justify-center pointer-events-auto">
             {editing ? (
               <Input
                 ref={inputRef}
