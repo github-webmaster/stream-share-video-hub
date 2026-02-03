@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Navbar } from "../components/Navbar";
 import { VideoCard } from "../components/VideoCard";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "sonner";
-import { Loader2, Upload, Play, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, Play } from "lucide-react";
 import { Button } from "../components/ui/button";
 
 export default function Dashboard() {
@@ -62,7 +62,7 @@ export default function Dashboard() {
     try {
       const { data, error } = await supabase
         .from("videos")
-        .select("*")
+        .select("id, title, filename, storage_path, share_id, views, created_at")
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
 
@@ -99,7 +99,6 @@ export default function Dashboard() {
           user_id: user?.id,
         };
         
-        console.log("Inserting video data:", videoData);
         const { error: dbError } = await supabase.from("videos").insert(videoData);
 
         if (dbError) throw dbError;
@@ -191,10 +190,10 @@ export default function Dashboard() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedVideos = videos.slice(startIndex, startIndex + itemsPerPage);
 
-  const getVideoUrl = (path: string) => {
+  const getVideoUrl = useCallback((path: string) => {
     const { data } = supabase.storage.from("videos").getPublicUrl(path);
     return data.publicUrl;
-  };
+  }, []);
 
   return (
     <div
