@@ -57,7 +57,7 @@ export default function Profile() {
         : "some time ago";
 
     return (
-        <div className="min-h-screen bg-background text-foreground">
+        <div className="min-h-screen text-foreground">
             <Navbar />
 
             <main className="mx-auto max-w-5xl px-4 py-8">

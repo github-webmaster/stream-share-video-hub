@@ -99,19 +99,11 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background-image: url('/assets/subtle-wallpaper-1.jpg');
+    background-image: url('/assets/wallpaper_dark.svg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 0.1;
-    pointer-events: none;
+    background-attachment: fixed;
   }
 }
 

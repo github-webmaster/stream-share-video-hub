@@ -63,7 +63,7 @@ export default function VideoPlayer() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-screen flex-col">
         <Navbar />
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -74,7 +74,7 @@ export default function VideoPlayer() {
 
   if (error || !video || !videoUrl) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-screen flex-col">
         <Navbar />
         <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
           <Play className="h-12 w-12 text-muted-foreground mb-4" />

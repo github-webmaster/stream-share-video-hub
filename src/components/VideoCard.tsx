@@ -51,7 +51,7 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-2xl border border-white/5 flex flex-col h-full shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.6)] transition-all duration-100 group-hover:duration-150 cubic-bezier(0.2, 0, 0.2, 1) hover:scale-[1.01] hover:-translate-y-1">
+    <div className="group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-xl border border-white/5 flex flex-col h-full shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.6)] transition-all duration-100 group-hover:duration-150 cubic-bezier(0.2, 0, 0.2, 1) hover:scale-[1.01] hover:-translate-y-1">
       {/* Whole Card Link Layer */}
       <Link
         to={sharePath}
