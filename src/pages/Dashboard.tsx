@@ -27,6 +27,9 @@ export default function Dashboard() {
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
+
   const fetchVideos = async () => {
     const { data, error } = await supabase
       .from("videos")
@@ -45,6 +48,11 @@ export default function Dashboard() {
   useEffect(() => {
     fetchVideos();
   }, []);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(videos.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedVideos = videos.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const deleteVideo = async (id: string, storagePath: string) => {
     try {
@@ -66,6 +74,13 @@ export default function Dashboard() {
       }
 
       setVideos((prev) => prev.filter((v) => v.id !== id));
+
+      // Adjust page if we deleted the last item on a page
+      const newTotalPages = Math.ceil((videos.length - 1) / ITEMS_PER_PAGE);
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages);
+      }
+
       toast.success("Video deleted");
     } catch (error) {
       console.error("[v0] Delete error:", error);
@@ -212,7 +227,7 @@ export default function Dashboard() {
         }
       />
 
-      <main className="relative z-10 mx-auto max-w-[1600px] px-8 sm:px-12 lg:px-16 py-12 space-y-12">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-8 sm:px-12 lg:px-16 py-12 space-y-12">
         {loading ? (
           <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 backdrop-blur-xl rounded-[10px] border border-white/5">
             <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
@@ -229,16 +244,65 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {videos.map((video) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-                videoUrl={getVideoUrl(video.storage_path)}
-                onDelete={deleteVideo}
-                onUpdateTitle={updateTitle}
-              />
-            ))}
+          <div className="space-y-12">
+            <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+              {paginatedVideos.map((video) => (
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  videoUrl={getVideoUrl(video.storage_path)}
+                  onDelete={deleteVideo}
+                  onUpdateTitle={updateTitle}
+                />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-col items-center gap-6 pt-8 border-t border-white/5">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant="ghost"
+                        size="sm"
+                        className={`h-10 w-10 rounded-md transition-all ${currentPage === page
+                            ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20"
+                            : "text-white/50 hover:text-white hover:bg-white/5"
+                          }`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+                <p className="text-sm text-white/30 font-medium">
+                  Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, videos.length)} of {videos.length} videos
+                </p>
+              </div>
+            )}
           </div>
         )}
       </main>
