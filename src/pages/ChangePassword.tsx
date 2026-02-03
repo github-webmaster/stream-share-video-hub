@@ -66,7 +66,7 @@ export default function ChangePassword() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             <Navbar />
 
             <main className="mx-auto max-w-lg px-4 py-12">

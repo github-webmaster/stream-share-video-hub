@@ -232,7 +232,7 @@ export default function Dashboard() {
         }
       />
 
-      <main className="relative z-10 mx-auto max-w-7xl px-4 py-12 space-y-12">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 space-y-6">
         {loading ? (
           <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 backdrop-blur-xl rounded-[10px] border border-white/5">
             <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
@@ -249,8 +249,8 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="space-y-12">
-            <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {paginatedVideos.map((video) => (
                 <VideoCard
                   key={video.id}

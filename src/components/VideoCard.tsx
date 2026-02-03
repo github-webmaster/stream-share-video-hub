@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, memo } from "react";
 import { Link } from "react-router-dom";
 import { Copy, Check, Trash2, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
@@ -22,12 +22,13 @@ interface VideoCardProps {
   onUpdateTitle: (id: string, title: string) => void;
 }
 
-export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCardProps) {
+export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: VideoCardProps) => {
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(video.title);
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const sharePath = `/v/${video.share_id}`;
   const shareUrl = `${window.location.origin}${sharePath}`;
@@ -50,6 +51,22 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  const handleMouseEnter = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      videoRef.current?.play().catch(() => { });
+    }, 100);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
   return (
     <div className="group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-xl border border-white/5 flex flex-col h-full shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.6)] transition-all duration-100 group-hover:duration-150 cubic-bezier(0.2, 0, 0.2, 1) hover:scale-[1.01] hover:-translate-y-1">
       {/* Whole Card Link Layer */}
@@ -62,7 +79,7 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
 
       {/* Interactive Content Layer */}
       <div className="relative z-10 pointer-events-none flex flex-col h-full">
-        <div className="relative aspect-[16/11] bg-black/20 overflow-hidden pointer-events-auto">
+        <div className="relative aspect-[16/8.5] bg-black/20 overflow-hidden pointer-events-auto">
           <Link
             to={sharePath}
             target="_blank"
@@ -74,22 +91,17 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
               muted
               preload="metadata"
-              onMouseEnter={() => videoRef.current?.play()}
-              onMouseLeave={() => {
-                if (videoRef.current) {
-                  videoRef.current.pause();
-                  videoRef.current.currentTime = 0;
-                }
-              }}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             />
-            <div className="absolute right-3 top-3 rounded-md bg-black/60 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white border border-white/10">
+            <div className="absolute right-2 top-2 rounded-md bg-black/60 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white border border-white/10">
               {video.views} views
             </div>
           </Link>
         </div>
 
-        <div className="p-6 space-y-5 flex flex-col flex-1">
-          <div className="h-[3.5rem] flex items-center justify-center pointer-events-auto">
+        <div className="p-3 space-y-3 flex flex-col flex-1">
+          <div className="h-[2.5rem] flex items-center justify-center pointer-events-auto">
             {editing ? (
               <Input
                 ref={inputRef}
@@ -100,11 +112,11 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
                   if (e.key === "Enter") saveTitle();
                   if (e.key === "Escape") setEditing(false);
                 }}
-                className="h-10 text-center text-lg bg-white/5 border-white/10 focus-visible:ring-1 focus-visible:ring-primary/20 rounded-md text-white"
+                className="h-8 text-center text-sm bg-white/5 border-white/10 focus-visible:ring-1 focus-visible:ring-primary/20 rounded-md text-white"
               />
             ) : (
               <h3
-                className="text-[17px] font-semibold text-center line-clamp-2 cursor-pointer hover:text-primary transition-colors px-2 text-white leading-snug"
+                className="text-sm font-semibold text-center line-clamp-2 cursor-pointer hover:text-primary transition-colors px-2 text-white leading-tight"
                 onClick={startEdit}
               >
                 {video.title}
@@ -112,25 +124,25 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mt-auto pointer-events-auto">
+          <div className="grid grid-cols-3 gap-1.5 mt-auto pointer-events-auto">
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 px-0 text-[10px] font-bold uppercase tracking-tight gap-2 rounded-md bg-white/5 hover:bg-white/10 transition-colors text-white/70 hover:text-white border border-white/5"
+              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight gap-1.5 rounded-md bg-white/5 hover:bg-white/10 transition-colors text-white/70 hover:text-white border border-white/5"
               onClick={copyLink}
             >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? "Copied" : "Copy"}
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 px-0 text-[10px] font-bold uppercase tracking-tight gap-2 rounded-md bg-white/5 hover:bg-white/10 transition-colors text-primary hover:text-primary border border-white/5"
+              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight gap-1.5 rounded-md bg-white/5 hover:bg-white/10 transition-colors text-primary hover:text-primary border border-white/5"
               asChild
             >
               <Link to={sharePath} target="_blank">
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink className="h-3 w-3" />
                 Open
               </Link>
             </Button>
@@ -138,10 +150,10 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 px-0 text-[10px] font-bold uppercase tracking-tight text-destructive hover:text-destructive gap-2 rounded-md bg-destructive/10 hover:bg-destructive/20 transition-colors border border-white/5"
+              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight text-destructive hover:text-destructive gap-1.5 rounded-md bg-destructive/10 hover:bg-destructive/20 transition-colors border border-white/5"
               onClick={() => onDelete(video.id, video.storage_path)}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-3 w-3" />
               Delete
             </Button>
           </div>
@@ -149,4 +161,6 @@ export function VideoCard({ video, videoUrl, onDelete, onUpdateTitle }: VideoCar
       </div>
     </div>
   );
-}
+});
+
+VideoCard.displayName = "VideoCard";
