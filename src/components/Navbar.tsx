@@ -12,9 +12,10 @@ import {
 
 interface NavbarProps {
     centerContent?: React.ReactNode;
+    rightContent?: React.ReactNode;
 }
 
-export function Navbar({ centerContent }: NavbarProps) {
+export function Navbar({ centerContent, rightContent }: NavbarProps) {
     const { user, signOut } = useAuth();
 
     return (
@@ -37,8 +38,9 @@ export function Navbar({ centerContent }: NavbarProps) {
                         </div>
                     )}
 
-                    {/* Right: User actions */}
-                    <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3">
+                    {/* Right: Custom content + User actions */}
+                    <div className="flex-1 flex items-center justify-end gap-2 sm:gap-4">
+                        {rightContent}
                         {user ? (
                             <>
                                 <Link

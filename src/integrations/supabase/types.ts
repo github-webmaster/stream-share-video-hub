@@ -14,6 +14,138 @@ export type Database = {
   }
   public: {
     Tables: {
+      storage_config: {
+        Row: {
+          allowed_types: string[] | null
+          created_at: string
+          id: string
+          max_file_size_mb: number
+          provider: string
+          storj_access_key: string | null
+          storj_bucket: string | null
+          storj_endpoint: string | null
+          storj_secret_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          allowed_types?: string[] | null
+          created_at?: string
+          id?: string
+          max_file_size_mb?: number
+          provider?: string
+          storj_access_key?: string | null
+          storj_bucket?: string | null
+          storj_endpoint?: string | null
+          storj_secret_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allowed_types?: string[] | null
+          created_at?: string
+          id?: string
+          max_file_size_mb?: number
+          provider?: string
+          storj_access_key?: string | null
+          storj_bucket?: string | null
+          storj_endpoint?: string | null
+          storj_secret_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      upload_progress: {
+        Row: {
+          bytes_uploaded: number
+          created_at: string
+          error_message: string | null
+          file_size: number
+          filename: string
+          id: string
+          retry_count: number
+          status: string
+          storage_provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bytes_uploaded?: number
+          created_at?: string
+          error_message?: string | null
+          file_size: number
+          filename: string
+          id?: string
+          retry_count?: number
+          status?: string
+          storage_provider?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bytes_uploaded?: number
+          created_at?: string
+          error_message?: string | null
+          file_size?: number
+          filename?: string
+          id?: string
+          retry_count?: number
+          status?: string
+          storage_provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_quotas: {
+        Row: {
+          created_at: string
+          id: string
+          storage_limit_bytes: number
+          storage_used_bytes: number
+          updated_at: string
+          upload_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          storage_limit_bytes?: number
+          storage_used_bytes?: number
+          updated_at?: string
+          upload_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          storage_limit_bytes?: number
+          storage_used_bytes?: number
+          updated_at?: string
+          upload_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       videos: {
         Row: {
           created_at: string
@@ -58,6 +190,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_user_quota: {
+        Args: { _file_size: number; _user_id: string }
+        Returns: {
+          has_quota: boolean
+          remaining: number
+          storage_limit: number
+          storage_used: number
+        }[]
+      }
       get_public_video_by_share_id: {
         Args: { share_id_param: string }
         Returns: {
@@ -67,13 +208,37 @@ export type Database = {
           views: number
         }[]
       }
+      get_storage_config: {
+        Args: never
+        Returns: {
+          allowed_types: string[]
+          max_file_size_mb: number
+          provider: string
+          storj_access_key: string
+          storj_bucket: string
+          storj_endpoint: string
+          storj_secret_key: string
+        }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_video_views: {
         Args: { video_share_id: string }
         Returns: undefined
       }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      update_user_quota: {
+        Args: { _bytes_added: number; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -200,6 +365,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

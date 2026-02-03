@@ -3,19 +3,24 @@ import { Navbar } from "../components/Navbar";
 import { VideoCard } from "../components/VideoCard";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
+import { useUpload } from "../hooks/useUpload";
+import { useAdmin } from "../hooks/useAdmin";
 import { toast } from "sonner";
-import { Loader2, Upload, Play } from "lucide-react";
+import { Loader2, Upload, Play, Settings } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { UploadProgress } from "../components/UploadProgress";
+import { StorageQuota } from "../components/StorageQuota";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const { user } = useAuth();
+  const { isAdmin } = useAdmin();
+  const { uploads, isUploading, uploadFiles, removeUpload, clearUploads } = useUpload();
   const inputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
@@ -62,7 +67,7 @@ export default function Dashboard() {
     try {
       const { data, error } = await supabase
         .from("videos")
-        .select("id, title, filename, storage_path, share_id, views, created_at")
+        .select("id, title, filename, storage_path, share_id, views, created_at, size")
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
 
@@ -77,41 +82,31 @@ export default function Dashboard() {
 
   const handleFiles = async (files: FileList) => {
     const fileArray = Array.from(files);
-    setIsUploading(true);
-    setUploadingFiles(fileArray.map(f => f.name));
-
-    for (const file of fileArray) {
-      try {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${user?.id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("videos")
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const videoData = {
-          title: file.name.split(".")[0],
-          filename: file.name,
-          storage_path: filePath,
-          user_id: user?.id,
-        };
-        
-        const { error: dbError } = await supabase.from("videos").insert(videoData);
-
-        if (dbError) throw dbError;
-        setUploadingFiles(prev => prev.filter(name => name !== file.name));
-      } catch (error: any) {
-        toast.error(`Error uploading ${file.name}: ${error.message}`);
-      }
+    
+    // Validate file types
+    const validFiles = fileArray.filter((file) => file.type.startsWith("video/"));
+    if (validFiles.length !== fileArray.length) {
+      toast.error("Some files were skipped - only video files are allowed");
     }
 
-    await fetchVideos();
-    setIsUploading(false);
-    setUploadingFiles([]);
-    toast.success("All videos uploaded successfully!");
+    if (validFiles.length === 0) {
+      toast.error("No valid video files selected");
+      return;
+    }
+
+    const results = await uploadFiles(validFiles);
+    
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
+
+    if (successCount > 0) {
+      await fetchVideos();
+      toast.success(`${successCount} video${successCount !== 1 ? "s" : ""} uploaded successfully!`);
+    }
+
+    if (failCount > 0) {
+      toast.error(`${failCount} upload${failCount !== 1 ? "s" : ""} failed`);
+    }
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -212,6 +207,13 @@ export default function Dashboard() {
         onChange={(e) => e.target.files && handleFiles(e.target.files)}
       />
 
+      {/* Upload Progress Component */}
+      <UploadProgress
+        uploads={uploads}
+        onClose={clearUploads}
+        onRemove={removeUpload}
+      />
+
       {/* Centered Drag-and-Drop Overlay */}
       {isDragOver && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-2xl pointer-events-none">
@@ -226,47 +228,32 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Centered Upload Progress Overlay (The requested 'popup') */}
-      {isUploading && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm mx-4 bg-[#1d1d1f] border border-white/10 rounded-2xl shadow-2xl p-8 space-y-6 transform animate-in fade-in zoom-in duration-300">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
-                <Loader2 className="relative h-12 w-12 text-primary animate-spin" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-xl font-bold text-white">Uploading...</h3>
-                <p className="text-sm text-muted-foreground">
-                  Processing {uploadingFiles.length} {uploadingFiles.length > 1 ? 'files' : 'file'}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                <div className="h-full bg-primary animate-progress-indeterminate" />
-              </div>
-              <p className="text-[10px] text-center uppercase tracking-widest text-primary/60 font-bold">
-                Keep this window open
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <Navbar
         centerContent={
-          <Button
-            variant="ghost"
-            onClick={() => inputRef.current?.click()}
-            disabled={isUploading}
-            className="px-4 sm:px-6 transition-all font-semibold text-white/70 hover:text-white"
-          >
-            <Upload className="h-4 w-4 mr-0 sm:mr-2" />
-            <span className="hidden sm:inline">Upload video</span>
-            <span className="inline sm:hidden">Upload</span>
-          </Button>
+          !isUploading && (
+            <Button
+              variant="ghost"
+              onClick={() => inputRef.current?.click()}
+              disabled={isUploading}
+              className="px-4 sm:px-6 transition-all font-semibold text-white/70 hover:text-white"
+            >
+              <Upload className="h-4 w-4 mr-0 sm:mr-2" />
+              <span className="hidden sm:inline">Upload video</span>
+              <span className="inline sm:hidden">Upload</span>
+            </Button>
+          )
+        }
+        rightContent={
+          <div className="flex items-center gap-4">
+            <StorageQuota />
+            {isAdmin && (
+              <Link to="/admin">
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white">
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </Link>
+            )}
+          </div>
         }
       />
 
