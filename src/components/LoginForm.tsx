@@ -30,54 +30,58 @@ export function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center p-4 font-sans">
       <div className="w-full max-w-[480px] space-y-8 bg-[#1d1d1f]/80 backdrop-blur-2xl rounded-[10px] p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5">
-        <div className="flex flex-col items-center justify-center gap-6">
-          <div className="p-4 rounded-[10px] bg-primary/10">
-            <Play className="h-10 w-10 fill-primary text-primary" />
+        <div className="flex items-center justify-center gap-4">
+          <div className="p-3 rounded-[10px] bg-primary/10">
+            <Play className="h-6 w-6 fill-primary text-primary" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-center text-white">StreamShare Hub</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white m-0">StreamShare Hub</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Input
-            type="email"
-            placeholder="Adam@Von.Enterprises"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="bg-white/5 border-white/10 h-12 text-center text-base rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
-          />
-          <Input
-            type="password"
-            placeholder="Your secret password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="bg-white/5 border-white/10 h-12 text-center text-base rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
-          />
+          <div className="space-y-4">
+            <Input
+              type="email"
+              placeholder="Adam@Von.Enterprises"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="bg-white/5 border-white/10 h-12 text-center text-sm rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
+            />
+            <Input
+              type="password"
+              placeholder="Your secret password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="bg-white/5 border-white/10 h-12 text-center text-sm rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
+            />
+          </div>
 
           {error && (
-            <p className="text-base text-destructive text-center font-medium">{error}</p>
+            <p className="text-sm text-destructive text-center font-medium">{error}</p>
           )}
 
-          <div className={`transition-all duration-300 ease-in-out ${email.includes('@') ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
-            <Button
-              type="submit"
-              className="w-full text-base h-12 rounded-[10px] font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.01] active:scale-[0.99] bg-primary text-primary-foreground"
-              disabled={loading}
+          <div className="flex flex-col gap-6">
+            <div className={`transition-all duration-500 ease-in-out ${email.includes('@') ? 'opacity-100 translate-y-0 h-12 visible' : 'opacity-0 -translate-y-4 h-0 invisible'}`}>
+              <Button
+                type="submit"
+                className="w-full text-sm h-12 rounded-[10px] font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.01] active:scale-[0.99] bg-primary text-primary-foreground"
+                disabled={loading}
+              >
+                {loading ? "Loading..." : isSignUp ? "Create Account" : "Login"}
+              </Button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="w-full text-center text-sm font-medium text-primary hover:underline underline-offset-4 transition-all"
             >
-              {loading ? "Loading..." : "Login"}
-            </Button>
+              {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
+            </button>
           </div>
         </form>
-
-        <button
-          type="button"
-          onClick={() => setIsSignUp(!isSignUp)}
-          className="w-full text-center text-base font-medium text-primary hover:underline underline-offset-4 transition-all"
-        >
-          {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
-        </button>
       </div>
     </div>
   );

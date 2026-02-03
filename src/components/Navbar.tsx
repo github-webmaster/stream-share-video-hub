@@ -64,7 +64,7 @@ export function Navbar({ centerContent }: NavbarProps) {
                             </DropdownMenu>
                         ) : (
                             <Button asChild variant="default" size="sm">
-                                <Link to="/">Sign up</Link>
+                                <Link to="/">Register / Login</Link>
                             </Button>
                         )}
                     </div>
