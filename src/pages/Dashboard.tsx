@@ -167,18 +167,12 @@ export default function Dashboard() {
 
   return (
     <div
-      className={`min-h-screen bg-[#f5f5f7] dark:bg-[#000000] relative overflow-x-hidden ${isDragOver ? "bg-primary/5" : ""
+      className={`min-h-screen bg-black relative overflow-x-hidden ${isDragOver ? "bg-primary/5" : ""
         }`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      {/* Dynamic iCloud-style Background Shapes */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-gradient-to-br from-blue-600/20 to-purple-600/30 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-gradient-to-tr from-cyan-400/10 to-blue-500/20 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
-
       <input
         ref={inputRef}
         type="file"
@@ -189,10 +183,10 @@ export default function Dashboard() {
       />
 
       {isDragOver && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/40 dark:bg-black/40 backdrop-blur-md pointer-events-none">
-          <div className="text-center p-12 bg-white/80 dark:bg-black/80 rounded-[3rem] shadow-2xl border border-white/20">
-            <Upload className="mx-auto h-20 w-20 text-primary animate-bounce" />
-            <p className="mt-6 text-2xl font-bold tracking-tight">Release to upload</p>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md pointer-events-none">
+          <div className="text-center p-12 bg-[#1d1d1f] rounded-[10px] shadow-2xl border border-white/10">
+            <Upload className="mx-auto h-20 w-20 text-primary animate-bounce shadow-[0_0_30px_rgba(59,130,246,0.5)]" />
+            <p className="mt-6 text-2xl font-bold tracking-tight text-white">Release to upload</p>
           </div>
         </div>
       )}
@@ -200,16 +194,16 @@ export default function Dashboard() {
       <Navbar
         centerContent={
           isUploading ? (
-            <div className="flex items-center gap-3 px-6 py-2 bg-secondary/50 rounded-full backdrop-blur-md animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 px-6 py-2 bg-white/5 rounded-full border border-white/10 backdrop-blur-md animate-in fade-in zoom-in duration-200">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-sm font-semibold whitespace-nowrap">
+              <span className="text-sm font-semibold whitespace-nowrap text-white">
                 Uploading {uploadingFiles.length} {uploadingFiles.length > 1 ? 'videos' : 'video'}...
               </span>
             </div>
           ) : (
             <Button
               onClick={() => inputRef.current?.click()}
-              className="rounded-full px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-105 active:scale-95"
+              className="rounded-full px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-105 active:scale-95 bg-primary text-primary-foreground font-semibold"
             >
               <Upload className="h-4 w-4 mr-2" />
               Upload video
@@ -220,22 +214,22 @@ export default function Dashboard() {
 
       <main className="relative z-10 mx-auto max-w-[1600px] px-8 sm:px-12 lg:px-16 py-12 space-y-12">
         {loading ? (
-          <div className="text-center text-muted-foreground py-24 bg-white/10 dark:bg-black/10 backdrop-blur-xl rounded-[3rem] border border-white/10">
+          <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 backdrop-blur-xl rounded-[10px] border border-white/5">
             <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
             <p className="mt-4 text-xl font-medium">Fetching your storage...</p>
           </div>
         ) : videos.length === 0 ? (
-          <div className="text-center py-24 bg-white/10 dark:bg-black/10 backdrop-blur-xl rounded-[3rem] border border-dashed border-white/20">
+          <div className="text-center py-24 bg-[#1d1d1f]/30 backdrop-blur-xl rounded-[10px] border border-dashed border-white/10">
             <div className="max-w-md mx-auto space-y-4">
-              <div className="bg-primary/10 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <div className="bg-primary/10 w-16 h-16 rounded-[10px] flex items-center justify-center mx-auto mb-6 border border-primary/20">
                 <Play className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold">Your library is empty</h2>
+              <h2 className="text-2xl font-bold text-white">Your library is empty</h2>
               <p className="text-muted-foreground text-lg">Upload your first video to start sharing with the world.</p>
             </div>
           </div>
         ) : (
-          <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {videos.map((video) => (
               <VideoCard
                 key={video.id}

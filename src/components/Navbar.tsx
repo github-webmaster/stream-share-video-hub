@@ -19,7 +19,7 @@ export function Navbar({ centerContent }: NavbarProps) {
     const { user, signOut } = useAuth();
 
     return (
-        <header className="sticky top-0 z-50 border-b border-white/10 dark:border-white/5 bg-white/60 dark:bg-black/60 backdrop-blur-2xl shadow-sm">
+        <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
             <div className="mx-auto grid max-w-7xl grid-cols-3 items-center px-4 py-3">
                 {/* Left: Logo */}
                 <div className="flex items-center">

@@ -28,13 +28,13 @@ export function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f5f5f7] dark:bg-[#000000] p-4 font-sans">
-      <div className="w-full max-w-[480px] space-y-8 bg-white/80 dark:bg-[#1d1d1f]/80 backdrop-blur-2xl rounded-[2.5rem] p-12 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/20 dark:border-white/5">
+    <div className="flex min-h-screen items-center justify-center bg-black p-4 font-sans">
+      <div className="w-full max-w-[480px] space-y-8 bg-[#1d1d1f]/80 backdrop-blur-2xl rounded-[10px] p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5">
         <div className="flex flex-col items-center justify-center gap-6">
-          <div className="p-4 rounded-3xl bg-primary/10 dark:bg-primary/20">
+          <div className="p-4 rounded-[10px] bg-primary/10">
             <Play className="h-10 w-10 fill-primary text-primary" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-center">StreamShare Hub</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-center text-white">StreamShare Hub</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -45,7 +45,7 @@ export function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="bg-secondary/50 border-none h-12 text-center text-lg rounded-2xl placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20"
+              className="bg-white/5 border-white/10 h-12 text-center text-lg rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
             />
             <Input
               type="password"
@@ -54,7 +54,7 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="bg-secondary/50 border-none h-12 text-center text-lg rounded-2xl placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20"
+              className="bg-white/5 border-white/10 h-12 text-center text-lg rounded-[10px] placeholder:text-muted-foreground/50 focus-visible:ring-1 focus-visible:ring-primary/20 text-white"
             />
           </div>
 
@@ -62,7 +62,7 @@ export function LoginForm() {
             <p className="text-base text-destructive text-center font-medium">{error}</p>
           )}
 
-          <Button type="submit" className="w-full text-lg h-12 rounded-2xl font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]" disabled={loading}>
+          <Button type="submit" className="w-full text-lg h-12 rounded-[10px] font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.01] active:scale-[0.99] bg-primary text-primary-foreground" disabled={loading}>
             {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
           </Button>
         </form>
