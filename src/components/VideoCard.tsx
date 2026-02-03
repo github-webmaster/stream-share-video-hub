@@ -26,6 +26,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(video.title);
+  const [isLoaded, setIsLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -68,7 +69,9 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-xl border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] opacity-80 hover:opacity-100">
+    <div
+      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-xl border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-700 ${isLoaded ? 'opacity-80 hover:opacity-100' : 'opacity-0'}`}
+    >
       {/* Whole Card Link Layer */}
       <Link
         to={sharePath}
@@ -93,6 +96,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
               preload="metadata"
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
+              onLoadedData={() => setIsLoaded(true)}
             />
             <div className="absolute right-2 top-2 rounded-md bg-black/60 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white border border-white/10">
               {video.views} views
@@ -150,7 +154,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight text-destructive hover:text-destructive gap-1.5 rounded-md bg-destructive/10 hover:bg-destructive/20 transition-colors border border-white/5"
+              className="h-8 px-0 text-[10px] font-bold uppercase tracking-tight text-destructive hover:text-white gap-1.5 rounded-md bg-transparent hover:bg-destructive opacity-30 hover:opacity-100 transition-all border border-destructive/50"
               onClick={() => onDelete(video.id, video.storage_path)}
             >
               <Trash2 className="h-3 w-3" />

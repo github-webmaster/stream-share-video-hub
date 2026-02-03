@@ -61,6 +61,41 @@ export default function VideoPlayer() {
     fetchVideo();
   }, [shareId]);
 
+  // Keyboard controls
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const videoElement = document.querySelector('video');
+      if (!videoElement) return;
+
+      // Only handle events if the user isn't typing in an input/textarea
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      switch (e.key) {
+        case " ":
+          e.preventDefault(); // Prevent page scroll
+          if (videoElement.paused) {
+            videoElement.play().catch(() => { });
+          } else {
+            videoElement.pause();
+          }
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col">
