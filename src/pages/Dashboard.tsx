@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { Navbar } from "../components/Navbar";
 import { VideoCard } from "../components/VideoCard";
 import { Button } from "../components/ui/button";
-import { Play, Loader2, Upload, LogOut, Copy, Check, Trash2, Edit2, User } from "lucide-react";
+import { Play, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 interface Video {
@@ -20,7 +20,7 @@ interface Video {
 }
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -28,7 +28,22 @@ export default function Dashboard() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 6;
+  const [itemsPerPage, setItemsPerPage] = useState(6);
+
+  useEffect(() => {
+    const updateDensity = () => {
+      // If width is ultra-wide (> 2000px) and height is large (> 1100px)
+      if (window.innerWidth >= 2000 && window.innerHeight >= 1100) {
+        setItemsPerPage(9);
+      } else {
+        setItemsPerPage(6);
+      }
+    };
+
+    updateDensity();
+    window.addEventListener("resize", updateDensity);
+    return () => window.removeEventListener("resize", updateDensity);
+  }, []);
 
   const fetchVideos = async () => {
     const { data, error } = await supabase
@@ -54,7 +69,7 @@ export default function Dashboard() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (uploadingFiles.length > 0) {
         e.preventDefault();
-        e.returnValue = ""; // Standard way to trigger browser prompt
+        e.returnValue = "";
         return "";
       }
     };
@@ -63,24 +78,10 @@ export default function Dashboard() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [uploadingFiles.length]);
 
-  // Handle internal navigation block
-  const isBlocking = uploadingFiles.length > 0;
-  useEffect(() => {
-    if (isBlocking) {
-      const handleBlockedNavigation = () => {
-        return !window.confirm("An upload is in progress. Are you sure you want to leave?");
-      };
-      // Note: React Router 6.4+ useBlocker is the modern way, 
-      // but for simplicity and reliability across different router setups, 
-      // a simple confirmed-based check or custom hook is often used.
-      // However, since we are in a SPA, we'll try to use a standard approach.
-    }
-  }, [isBlocking]);
-
   // Pagination calculations
-  const totalPages = Math.ceil(videos.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedVideos = videos.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(videos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedVideos = videos.slice(startIndex, startIndex + itemsPerPage);
 
   const deleteVideo = async (id: string, storagePath: string) => {
     try {
@@ -104,7 +105,7 @@ export default function Dashboard() {
       setVideos((prev) => prev.filter((v) => v.id !== id));
 
       // Adjust page if we deleted the last item on a page
-      const newTotalPages = Math.ceil((videos.length - 1) / ITEMS_PER_PAGE);
+      const newTotalPages = Math.ceil((videos.length - 1) / itemsPerPage);
       if (currentPage > newTotalPages && newTotalPages > 0) {
         setCurrentPage(newTotalPages);
       }
@@ -354,7 +355,7 @@ export default function Dashboard() {
                     </Button>
                   </div>
                   <p className="text-sm text-white/30 font-medium">
-                    Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, videos.length)} of {videos.length} videos
+                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, videos.length)} of {videos.length} videos
                   </p>
                 </div>
               </div>

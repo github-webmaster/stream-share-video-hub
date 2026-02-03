@@ -37,9 +37,22 @@ export default function Profile() {
     const [emailPassword, setEmailPassword] = useState("");
 
     useEffect(() => {
+        // Handle deep-linking via hash
+        const handleHash = () => {
+            const hash = window.location.hash.replace("#", "");
+            if (hash === "billing" || hash === "privacy" || hash === "profile") {
+                setActiveSection(hash as Section);
+            }
+        };
+
+        handleHash();
+        window.addEventListener("hashchange", handleHash);
+
         if (user) {
             fetchProfile();
         }
+
+        return () => window.removeEventListener("hashchange", handleHash);
     }, [user]);
 
     const fetchProfile = async () => {
@@ -77,7 +90,6 @@ export default function Profile() {
         setLoading(true);
 
         try {
-            // Re-authentication would be required for a real production environment
             const { error } = await supabase.auth.updateUser({ email: newEmail });
 
             if (error) throw error;
@@ -267,7 +279,7 @@ export default function Profile() {
                         )}
 
                         {activeSection === "billing" && (
-                            <Card className="bg-[#1d1d1f] border-white/5 shadow-2xl overflow-hidden">
+                            <Card id="billing" className="bg-[#1d1d1f] border-white/5 shadow-2xl overflow-hidden scroll-mt-20">
                                 <CardHeader className="p-8 pb-0">
                                     <CardTitle className="text-3xl font-bold">Plan & Billing</CardTitle>
                                     <CardDescription className="text-muted-foreground">
