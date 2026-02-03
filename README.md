@@ -18,6 +18,7 @@ StreamShare Hub is a private video hosting platform that gives you complete cont
 - **Video Management** - Organize, edit titles, and delete videos
 - **View Analytics** - Track video views and engagement
 - **Mobile Responsive** - Works seamlessly on all devices
+- **STORJ S3 Integration** - Decentralized cloud storage with automatic fallback (NEW!)
 
 ### Privacy & Security
 - **Row-Level Security** - Database-level access controls
@@ -48,6 +49,8 @@ StreamShare Hub is a private video hosting platform that gives you complete cont
 - **PostgreSQL** - Primary database with RLS policies
 - **Supabase Auth** - User authentication and session management
 - **Supabase Storage** - File storage with CDN capabilities
+- **Supabase Edge Functions** - Serverless functions for upload handling
+- **STORJ S3** - Decentralized cloud storage (optional)
 
 ### Development Tools
 - **Vite** - Fast development server and build tool
@@ -266,6 +269,36 @@ src/
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open Pull Request
 
+## STORJ S3 Integration (Optional)
+
+StreamShare Hub supports decentralized cloud storage via STORJ S3 with automatic fallback to Supabase Storage.
+
+### Features
+- ✅ Decentralized cloud storage
+- ✅ S3-compatible API
+- ✅ Automatic fallback to Supabase
+- ✅ Admin panel configuration
+- ✅ Real-time progress tracking
+- ✅ Error handling with retries
+
+### Quick Setup
+
+1. **Create STORJ account** at https://www.storj.io/
+2. **Generate S3 credentials** (Access Key, Secret Key)
+3. **Create a bucket** for your videos
+4. **Configure in Admin Panel** (`/admin` route)
+5. **Toggle STORJ ON** and enter credentials
+6. **Test connection** and save
+
+### Documentation
+- **Setup Guide**: See `docs/STORJ_SETUP.md` for detailed instructions
+- **Implementation Details**: See `docs/IMPLEMENTATION_SUMMARY.md`
+
+### Default Behavior
+- First registered user becomes admin automatically
+- STORJ is optional - Supabase Storage works out of the box
+- Fallback to Supabase if STORJ fails or not configured
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -274,9 +307,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For support and questions:
 - Create an issue in the GitHub repository
-- Check the documentation
+- Check the documentation in `docs/` folder
 - Review the FAQ section
 
 ---
 
-Built with React, TypeScript, and Supabase for secure private video hosting.
+Built with React, TypeScript, Supabase, and STORJ for secure private video hosting.
