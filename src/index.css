@@ -107,11 +107,25 @@
     position: fixed;
     inset: 0;
     z-index: -1;
-    background-image: url('/assets/wallpaper_dark.svg');
+    background-image: url('/assets/subtle-wallpaper-2.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     pointer-events: none;
+  }
+
+  /* Extreme Performance: Remove all transitions for instant feel */
+  * {
+    transition: none !important;
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+
+  /* Except for specific functional animations like loaders if needed */
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
   }
 }
 

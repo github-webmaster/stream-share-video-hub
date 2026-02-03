@@ -68,7 +68,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-xl border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] opacity-80 hover:opacity-100 transition-opacity duration-75 ease-out">
+    <div className="group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-xl border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] opacity-80 hover:opacity-100">
       {/* Whole Card Link Layer */}
       <Link
         to={sharePath}

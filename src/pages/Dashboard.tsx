@@ -28,7 +28,7 @@ export default function Dashboard() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 12;
+  const ITEMS_PER_PAGE = 9;
 
   const fetchVideos = async () => {
     const { data, error } = await supabase
@@ -198,11 +198,11 @@ export default function Dashboard() {
       />
 
       {isDragOver && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-2xl pointer-events-none animate-in fade-in duration-300">
-          <div className="text-center p-16 bg-white/5 rounded-[20px] shadow-[0_0_100px_rgba(59,130,246,0.15)] border border-white/10 backdrop-blur-3xl transform scale-110 animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-2xl pointer-events-none">
+          <div className="text-center p-16 bg-white/5 rounded-[20px] shadow-[0_0_100px_rgba(59,130,246,0.15)] border border-white/10 backdrop-blur-3xl transform scale-110">
             <div className="relative mb-8 flex justify-center">
               <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-              <Upload className="relative h-24 w-24 text-primary animate-bounce drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
+              <Upload className="relative h-24 w-24 text-primary drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
             </div>
             <p className="text-3xl font-bold tracking-tight text-white mb-2">Release to upload</p>
             <p className="text-white/40 font-medium">Your videos will be ready in seconds</p>
