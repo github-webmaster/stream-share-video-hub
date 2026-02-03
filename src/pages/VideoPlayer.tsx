@@ -123,18 +123,21 @@ export default function VideoPlayer() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar />
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#0e0e10] group/viewer">
+      <div className="opacity-25 group-hover/viewer:opacity-100 transition-opacity duration-500">
+        <Navbar />
+      </div>
 
-      <main className="flex-1 flex flex-col justify-center relative z-10 mx-auto max-w-7xl px-4 space-y-6">
-        <div className="w-full mx-auto">
+      <main className="flex-1 flex flex-col justify-center relative z-10 mx-auto w-full max-w-7xl px-0 sm:px-4 space-y-4 sm:space-y-6 overflow-hidden">
+        <div className="w-full mx-auto flex-1 flex flex-col justify-center">
           {/* Video Container with fluid scaling and max constraints */}
           <div
             className="relative w-full overflow-hidden bg-black shadow-2xl sm:rounded-xl"
             style={{
-              maxHeight: '720px',
-              height: 'calc(100vw * 9 / 16)', // Maintain aspect ratio fluidly
-              maxWidth: '1280px'
+              maxHeight: '100%',
+              aspectRatio: '16 / 9',
+              maxWidth: '1280px',
+              margin: '0 auto'
             }}
           >
             <video
@@ -142,20 +145,19 @@ export default function VideoPlayer() {
               controls
               autoPlay
               playsInline
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               style={{
-                maxWidth: '1280px',
-                maxHeight: '720px'
+                maxWidth: '1280px'
               }}
             />
           </div>
 
           {/* Video Info Section - YouTube Style */}
-          <div className="mt-6">
-            <h1 className="text-xl sm:text-2xl font-bold line-clamp-2 leading-tight">
+          <div className="mt-4 sm:mt-6 px-4 sm:px-0 opacity-25 group-hover/viewer:opacity-100 transition-opacity duration-500">
+            <h1 className="text-lg sm:text-2xl font-bold line-clamp-2 leading-tight text-white">
               {video.title}
             </h1>
-            <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground font-medium">
+            <div className="mt-1 sm:mt-2 flex items-center gap-3 text-xs sm:text-sm text-muted-foreground font-medium">
               <span>{video.views + 1} views</span>
               <span>•</span>
               <span>StreamShare Hub</span>

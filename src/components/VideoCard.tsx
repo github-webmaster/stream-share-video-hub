@@ -31,6 +31,14 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
   const videoRef = useRef<HTMLVideoElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fallback to show card if video takes too long to load metadata on mobile
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
   const sharePath = `/v/${video.share_id}`;
   const shareUrl = `${window.location.origin}${sharePath}`;
 
