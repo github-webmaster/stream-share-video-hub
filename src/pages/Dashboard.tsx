@@ -94,6 +94,7 @@ export default function Dashboard() {
 
         const { error: dbError } = await supabase.from("videos").insert({
           title: file.name.split(".")[0],
+          filename: file.name,
           storage_path: filePath,
           user_id: user?.id,
         });

@@ -25,6 +25,8 @@ export type Database = {
           updated_at: string
           user_id: string | null
           views: number
+          visibility: string
+          size: number | null
         }
         Insert: {
           created_at?: string
@@ -36,6 +38,8 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           views?: number
+          visibility?: string
+          size?: number | null
         }
         Update: {
           created_at?: string
@@ -47,6 +51,8 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           views?: number
+          visibility?: string
+          size?: number | null
         }
         Relationships: []
       }
