@@ -28,7 +28,7 @@ export default function Dashboard() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = 6;
 
   const fetchVideos = async () => {
     const { data, error } = await supabase
