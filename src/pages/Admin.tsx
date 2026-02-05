@@ -68,7 +68,7 @@ export default function Admin() {
 
   const handleSave = async () => {
     const updates: Record<string, unknown> = {
-      provider: useStorj ? "storj" : "supabase",
+      provider: useStorj ? "storj" : "local",
       max_file_size_mb: maxFileSize,
     };
 
@@ -127,7 +127,7 @@ export default function Admin() {
               </CardTitle>
               <CardDescription>
                 Choose where to store uploaded videos. STORJ provides decentralized cloud storage.
-                Supabase Storage is used as fallback.
+                Local storage is used as fallback.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -135,7 +135,7 @@ export default function Admin() {
                 <div className="space-y-0.5">
                   <Label className="text-white">Use STORJ S3</Label>
                   <p className="text-sm text-muted-foreground">
-                    Enable STORJ for decentralized storage (falls back to Supabase if unavailable)
+                    Enable STORJ for decentralized storage (falls back to local storage if unavailable)
                   </p>
                 </div>
                 <Switch checked={useStorj} onCheckedChange={setUseStorj} />

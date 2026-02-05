@@ -1,4 +1,0 @@
-project_id = "nvfhmwjqjzusutkmvyww"
-
-[functions.upload-video]
-verify_jwt = false

@@ -1,0 +1,51 @@
+# docker-compose-alt.yml
+# Alternative deployment for a second local instance on different ports
+# 
+# IMPORTANT: DATABASE_URL must match credentials in docker/.env:
+#   POSTGRES_USER=postgres, POSTGRES_PASSWORD=postgres
+#   Use: postgres://postgres:postgres@db2:5432/streamshare
+
+services:
+  db2:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - ./docker/.env
+    volumes:
+      - db2_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5434:5432"
+
+  api2:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      - db2
+    env_file:
+      - ./docker/.env
+    environment:
+      PORT: 8082
+      DATABASE_URL: postgres://postgres:postgres@db2:5432/streamshare
+      STORAGE_PATH: /data/videos
+    volumes:
+      - ./data/videos:/data/videos
+    ports:
+      - "8082:8082"
+
+  frontend2:
+    build:
+      context: .
+      dockerfile: ./docker/frontend.Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8082
+        VITE_MEDIA_URL: /assets/optimized
+    restart: unless-stopped
+    depends_on:
+      - api2
+    ports:
+      - "4001:80"
+
+volumes:
+  db2_data:

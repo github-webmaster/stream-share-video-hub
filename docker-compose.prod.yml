@@ -1,0 +1,124 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: streamshare-db
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  minio:
+    image: minio/minio:latest
+    container_name: streamshare-minio
+    restart: unless-stopped
+    networks:
+      - internal
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  api:
+    build:
+      context: .
+      dockerfile: api.Dockerfile.prod
+    container_name: streamshare-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: ${PORT}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: ${NODE_ENV}
+      DEBUG_ENABLED: ${DEBUG_ENABLED}
+      LOG_LEVEL: ${LOG_LEVEL}
+      STORAGE_PATH: ${STORAGE_PATH}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB}
+      ALLOWED_TYPES: ${ALLOWED_TYPES}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      STORJ_ACCESS_KEY: ${STORJ_ACCESS_KEY:-}
+      STORJ_SECRET_KEY: ${STORJ_SECRET_KEY:-}
+      STORJ_ENDPOINT: ${STORJ_ENDPOINT:-}
+      STORJ_BUCKET: ${STORJ_BUCKET:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-minio:9000}
+    volumes:
+      - api_data:/data/videos
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_MEDIA_URL: ${VITE_MEDIA_URL}
+    container_name: streamshare-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  db_data:
+  minio_data:
+  api_data:

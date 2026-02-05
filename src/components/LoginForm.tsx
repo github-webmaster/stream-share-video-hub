@@ -29,7 +29,7 @@ export function LoginForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-[480px] space-y-8 bg-[#1d1d1f]/80 backdrop-blur-2xl rounded-[10px] p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5">
+      <div className="w-full max-w-[480px] space-y-8 bg-[#1d1d1f]/80 rounded-[10px] p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5">
         <div className="flex items-center justify-center gap-4">
           <div className="p-3 rounded-[10px] bg-primary/10">
             <Play className="h-6 w-6 fill-primary text-primary" />

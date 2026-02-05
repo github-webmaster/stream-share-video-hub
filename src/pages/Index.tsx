@@ -14,7 +14,11 @@ const Index = () => {
   }
 
   if (!user) {
-    return <LoginForm />;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <LoginForm />
+      </div>
+    );
   }
 
   return <Dashboard />;

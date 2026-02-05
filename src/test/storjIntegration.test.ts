@@ -51,7 +51,7 @@ describe("STORJ S3 Edge Function Integration", () => {
       expect(shouldUseStorj).toBe(true);
     });
 
-    it("should fallback to Supabase when STORJ is not configured", () => {
+    it("should fallback to local storage when STORJ is not configured", () => {
       const config = {
         provider: "storj",
         storj_access_key: null,
@@ -68,9 +68,9 @@ describe("STORJ S3 Edge Function Integration", () => {
       expect(shouldUseStorj).toBe(false);
     });
 
-    it("should use Supabase when provider is set to supabase", () => {
+    it("should use local storage when provider is set to local", () => {
       const config = {
-        provider: "supabase",
+        provider: "local",
         storj_access_key: "test-key",
         storj_secret_key: "test-secret",
         storj_bucket: "test-bucket",

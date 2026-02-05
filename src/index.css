@@ -122,14 +122,6 @@
     scrollbar-width: none;
   }
 
-  /* Extreme Performance: Remove all transitions for instant feel */
-  * {
-    transition: none !important;
-    animation-duration: 0.001s !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001s !important;
-  }
-
   /* Hide scrollbars for all elements universally */
   * {
     scrollbar-width: none !important;

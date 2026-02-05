@@ -9,26 +9,32 @@ import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import ChangePassword from "./pages/ChangePassword";
 import Admin from "./pages/Admin";
+import { AdminRoute } from "./components/AdminRoute";
+import { UploadProvider } from "./contexts/UploadContext";
+import { GlobalUploadManager } from "./components/GlobalUploadManager";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner position="top-center" />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/v/:shareId" element={<VideoPlayer />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/password" element={<ChangePassword />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+        <UploadProvider>
+            <TooltipProvider>
+                <Toaster />
+                <Sonner position="top-center" />
+                <GlobalUploadManager />
+                <BrowserRouter>
+                    <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/v/:shareId" element={<VideoPlayer />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/password" element={<ChangePassword />} />
+                        <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                        <Route path="*" element={<NotFound />} />
+                    </Routes>
+                </BrowserRouter>
+            </TooltipProvider>
+        </UploadProvider>
+    </QueryClientProvider>
 );
 
 export default App;

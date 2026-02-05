@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../integrations/supabase/client";
+import { authApi } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
@@ -12,15 +12,6 @@ import { User, Lock, CreditCard, ChevronLeft, Check, ShieldCheck, Info, CreditCa
 import { toast } from "sonner";
 import { formatDistance } from "date-fns";
 import { Input } from "../components/ui/input";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "../components/ui/dialog";
 
 type Section = "profile" | "privacy" | "billing";
 
@@ -30,12 +21,6 @@ export default function Profile() {
     const [activeSection, setActiveSection] = useState<Section>("profile");
     const [defaultVisibility, setDefaultVisibility] = useState<string>("public");
     const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
-    const [loading, setLoading] = useState(false);
-
-    // Email change states
-    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
-    const [newEmail, setNewEmail] = useState("");
-    const [emailPassword, setEmailPassword] = useState("");
 
     // Handle initial hash and hash changes
     useEffect(() => {
@@ -94,32 +79,12 @@ export default function Profile() {
         ? formatDistance(new Date(user.created_at), new Date(), { addSuffix: true })
         : "some time ago";
 
-    const handleEmailChange = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-
-        try {
-            const { error } = await supabase.auth.updateUser({ email: newEmail });
-
-            if (error) throw error;
-
-            toast.success("Email update initiated! Check your inbox.");
-            setIsEmailDialogOpen(false);
-            setNewEmail("");
-            setEmailPassword("");
-        } catch (error: any) {
-            toast.error(error.message || "Failed to update email");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
         <div className="min-h-screen">
             <Navbar />
 
             <main className="mx-auto max-w-7xl px-4 py-8">
-                <Link to="/" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 w-fit transition-colors">
+                <Link to="/" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 w-fit">
                     <ChevronLeft className="h-4 w-4" />
                     Back to Dashboard
                 </Link>
@@ -132,7 +97,7 @@ export default function Profile() {
                                 setActiveSection("profile");
                                 window.location.hash = "profile";
                             }}
-                            className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === "profile" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${activeSection === "profile" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
                                 }`}
                         >
                             <User className="h-4 w-4" />
@@ -143,7 +108,7 @@ export default function Profile() {
                                 setActiveSection("privacy");
                                 window.location.hash = "privacy";
                             }}
-                            className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === "privacy" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${activeSection === "privacy" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
                                 }`}
                         >
                             <Lock className="h-4 w-4" />
@@ -154,7 +119,7 @@ export default function Profile() {
                                 setActiveSection("billing");
                                 window.location.hash = "billing";
                             }}
-                            className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === "billing" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
+                            className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${activeSection === "billing" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
                                 }`}
                         >
                             <CreditCard className="h-4 w-4" />
@@ -183,60 +148,9 @@ export default function Profile() {
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-                                                    <DialogTrigger asChild>
-                                                        <Button variant="link" className="text-primary p-0 h-auto text-sm font-medium hover:no-underline shadow-none border-none">
-                                                            Change Email
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent className="sm:max-w-[425px] bg-[#1d1d1f] border-white/5 shadow-2xl">
-                                                        <DialogHeader>
-                                                            <DialogTitle className="text-2xl font-bold">Change Email</DialogTitle>
-                                                            <DialogDescription className="text-muted-foreground">
-                                                                Enter your new email and confirm with your password.
-                                                            </DialogDescription>
-                                                        </DialogHeader>
-                                                        <form onSubmit={handleEmailChange} className="space-y-4 py-4">
-                                                            <div className="space-y-2">
-                                                                <Label htmlFor="current-email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Current Email</Label>
-                                                                <Input id="current-email" value={user?.email || ""} readOnly className="bg-black/20 border-white/5 text-muted-foreground" />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <Label htmlFor="new-email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">New Email</Label>
-                                                                <Input
-                                                                    id="new-email"
-                                                                    type="email"
-                                                                    value={newEmail}
-                                                                    onChange={(e) => setNewEmail(e.target.value)}
-                                                                    placeholder="Enter new email"
-                                                                    required
-                                                                    className="bg-black/20 border-white/5 focus-visible:ring-primary/20"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <Label htmlFor="confirm-pass" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Confirm Password</Label>
-                                                                <Input
-                                                                    id="confirm-pass"
-                                                                    type="password"
-                                                                    value={emailPassword}
-                                                                    onChange={(e) => setEmailPassword(e.target.value)}
-                                                                    placeholder="Your current password"
-                                                                    required
-                                                                    className="bg-black/20 border-white/5 focus-visible:ring-primary/20"
-                                                                />
-                                                            </div>
-                                                            <DialogFooter className="pt-4">
-                                                                <Button
-                                                                    type="submit"
-                                                                    disabled={loading}
-                                                                    className="w-full bg-primary hover:bg-primary/90 font-bold"
-                                                                >
-                                                                    {loading ? "Updating..." : "Update Email"}
-                                                                </Button>
-                                                            </DialogFooter>
-                                                        </form>
-                                                    </DialogContent>
-                                                </Dialog>
+                                                <Button asChild variant="link" className="text-primary p-0 h-auto text-sm font-medium hover:no-underline shadow-none border-none">
+                                                    <Link to="/email">Change Email</Link>
+                                                </Button>
                                                 <Button asChild variant="link" className="text-primary p-0 h-auto text-sm font-medium hover:no-underline border-l border-white/10 pl-3 rounded-none shadow-none">
                                                     <Link to="/password">Change Password</Link>
                                                 </Button>

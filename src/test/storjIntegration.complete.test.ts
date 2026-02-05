@@ -138,9 +138,9 @@ describe("STORJ S3 Integration - Complete Feature Set", () => {
 
   describe("4. Admin Panel for STORJ Configuration", () => {
     it("should have storage provider options", () => {
-      const providers = ["supabase", "storj"];
+      const providers = ["local", "s3", "storj"];
       
-      expect(providers).toContain("supabase");
+      expect(providers).toContain("local");
       expect(providers).toContain("storj");
     });
 
@@ -263,9 +263,9 @@ describe("STORJ S3 Integration - Complete Feature Set", () => {
     });
 
     it("should record storage provider used", () => {
-      const validProviders = ["supabase", "storj"];
+      const validProviders = ["local", "s3", "storj"];
       
-      expect(validProviders).toContain("supabase");
+      expect(validProviders).toContain("local");
       expect(validProviders).toContain("storj");
     });
   });
@@ -288,7 +288,7 @@ describe("STORJ S3 Integration - Complete Feature Set", () => {
       expect(useStorj).toBe(true);
     });
 
-    it("should fallback to Supabase when STORJ credentials missing", () => {
+    it("should fallback to local storage when STORJ credentials missing", () => {
       const config = {
         provider: "storj",
         storj_access_key: null,
@@ -305,9 +305,9 @@ describe("STORJ S3 Integration - Complete Feature Set", () => {
       expect(useStorj).toBe(false);
     });
 
-    it("should fallback to Supabase when provider is supabase", () => {
+    it("should fallback to local storage when provider is local", () => {
       const config = {
-        provider: "supabase",
+        provider: "local",
         storj_access_key: "has-key",
         storj_secret_key: "has-secret",
         storj_bucket: "has-bucket",
@@ -322,7 +322,7 @@ describe("STORJ S3 Integration - Complete Feature Set", () => {
       expect(useStorj).toBe(false);
     });
 
-    it("should fallback to Supabase on STORJ upload failure", () => {
+    it("should fallback to local storage on STORJ upload failure", () => {
       const storjResult = { success: false, error: "Connection timeout" };
       const shouldFallback = !storjResult.success;
       
@@ -330,9 +330,9 @@ describe("STORJ S3 Integration - Complete Feature Set", () => {
       expect(storjResult.error).toBeDefined();
     });
 
-    it("should use Supabase storage as default", () => {
-      const defaultProvider = "supabase";
-      expect(defaultProvider).toBe("supabase");
+    it("should use local storage as default", () => {
+      const defaultProvider = "local";
+      expect(defaultProvider).toBe("local");
     });
   });
 

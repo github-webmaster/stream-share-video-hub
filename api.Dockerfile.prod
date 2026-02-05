@@ -1,0 +1,48 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies for build
+COPY server/package*.json ./
+
+RUN npm ci --omit=dev
+
+# Production stage
+FROM node:20-alpine
+
+# Install wait-for-it and postgresql-client for migrations
+RUN apk add --no-cache bash postgresql-client \
+    && wget -O /usr/local/bin/wait-for-it https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
+    && chmod +x /usr/local/bin/wait-for-it
+
+WORKDIR /app
+
+# Create non-root user
+RUN adduser -D -u 1001 appuser
+
+# Copy dependencies from builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy application code
+COPY server/package*.json ./
+COPY server/src ./src
+
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Create data directory
+RUN mkdir -p /data/videos/chunks \
+    && chown -R appuser:appuser /data \
+    && chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER 1001
+
+EXPOSE 8081
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:8081/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });"
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["node", "src/index.js"]

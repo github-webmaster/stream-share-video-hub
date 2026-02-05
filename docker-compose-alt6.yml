@@ -1,0 +1,66 @@
+# docker-compose-alt6.yml
+# Fresh deployment for testing at ports (API: 8087, Frontend: 4006)
+#
+# INSTALLATION TRACKING:
+#   Compose File: docker-compose-alt6.yml
+#   Frontend URL: http://localhost:4006
+#   API URL: http://localhost:8087
+#   Database Port: 5439
+#   Logs: docker compose -f docker-compose-alt6.yml logs [service]
+#
+# CRITICAL: DATABASE_URL uses postgres:postgres (matches docker/.env)
+# CORS: Not configured = defaults to allow all origins (no CORS issues)
+# RATE LIMIT: 1000 requests/15min (fixed from original 100)
+
+services:
+  db7:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - ./docker/.env
+    volumes:
+      - db7_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5439:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d streamshare"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api7:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      db7:
+        condition: service_healthy
+    env_file:
+      - ./docker/.env
+    environment:
+      PORT: 8087
+      # CRITICAL: Must use postgres:postgres - matches POSTGRES_USER/PASSWORD in docker/.env
+      DATABASE_URL: postgres://postgres:postgres@db7:5432/streamshare
+      STORAGE_PATH: /data/videos
+      # CORS: Not set = defaults to allow all origins
+    volumes:
+      - ./data/videos:/data/videos
+    ports:
+      - "8087:8087"
+
+  frontend7:
+    build:
+      context: .
+      dockerfile: ./docker/frontend.Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8087
+        VITE_MEDIA_URL: /assets/optimized
+    restart: unless-stopped
+    depends_on:
+      - api7
+    ports:
+      - "4006:80"
+
+volumes:
+  db7_data:

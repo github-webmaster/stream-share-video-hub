@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Navbar } from "../components/Navbar";
 import { VideoCard } from "../components/VideoCard";
-import { supabase } from "../integrations/supabase/client";
+import { videoApi, type Video } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { useUpload } from "../hooks/useUpload";
 import { useAdmin } from "../hooks/useAdmin";
+import { useUserQuota } from "../hooks/useUserQuota";
 import { toast } from "sonner";
 import { Loader2, Upload, Play, Settings } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -13,22 +14,49 @@ import { StorageQuota } from "../components/StorageQuota";
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
-  const [videos, setVideos] = useState<any[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showVideos, setShowVideos] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
+  const { refetch: refetchQuota } = useUserQuota();
   const { uploads, isUploading, uploadFiles, removeUpload, clearUploads } = useUpload();
   const inputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
+  const loadedVideos = useRef(new Set<string>());
+
+  const totalPages = Math.ceil(videos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedVideos = videos.slice(startIndex, startIndex + itemsPerPage);
+
+  const handleVideoLoaded = useCallback((id: string) => {
+    loadedVideos.current.add(id);
+    if (loadedVideos.current.size >= Math.min(3, paginatedVideos.length)) {
+      setShowVideos(true);
+    }
+  }, [paginatedVideos.length]);
 
   useEffect(() => {
     if (user) {
       fetchVideos();
     }
   }, [user]);
+
+  // Reset show state only when page changes
+  useEffect(() => {
+    setShowVideos(false);
+    loadedVideos.current.clear();
+    
+    // Fallback timer to show videos if metadata loading is slow
+    const timer = setTimeout(() => {
+      setShowVideos(true);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [currentPage]);
 
   // Adaptive Grid Density
   useEffect(() => {
@@ -65,16 +93,11 @@ export default function Dashboard() {
 
   const fetchVideos = async () => {
     try {
-      const { data, error } = await supabase
-        .from("videos")
-        .select("id, title, filename, storage_path, share_id, views, created_at, size")
-        .eq("user_id", user?.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await videoApi.list();
       setVideos(data || []);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch videos";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -101,6 +124,7 @@ export default function Dashboard() {
 
     if (successCount > 0) {
       await fetchVideos();
+      await refetchQuota();
       toast.success(`${successCount} video${successCount !== 1 ? "s" : ""} uploaded successfully!`);
     }
 
@@ -138,20 +162,9 @@ export default function Dashboard() {
     }
   };
 
-  const deleteVideo = async (id: string, storagePath: string) => {
+  const deleteVideo = async (id: string) => {
     try {
-      const { error: storageError } = await supabase.storage
-        .from("videos")
-        .remove([storagePath]);
-
-      if (storageError) throw storageError;
-
-      const { error: dbError } = await supabase
-        .from("videos")
-        .delete()
-        .eq("id", id);
-
-      if (dbError) throw dbError;
+      await videoApi.remove(id);
 
       setVideos(videos.filter((v) => v.id !== id));
 
@@ -160,64 +173,45 @@ export default function Dashboard() {
         setCurrentPage(currentPage - 1);
       }
 
+      await refetchQuota();
       toast.success("Video deleted");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete video";
+      toast.error(errorMessage);
     }
   };
 
   const updateTitle = async (id: string, title: string) => {
     try {
-      const { error } = await supabase
-        .from("videos")
-        .update({ title })
-        .eq("id", id);
-
-      if (error) throw error;
+      await videoApi.updateTitle(id, title);
       setVideos(videos.map((v) => (v.id === id ? { ...v, title } : v)));
       toast.success("Title updated");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update title";
+      toast.error(errorMessage);
     }
   };
 
-  const totalPages = Math.ceil(videos.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedVideos = videos.slice(startIndex, startIndex + itemsPerPage);
-
-  const getVideoUrl = useCallback((path: string) => {
-    const { data } = supabase.storage.from("videos").getPublicUrl(path);
-    return data.publicUrl;
+  const getVideoUrl = useCallback((video: Video) => {
+    // Use mediaUrl if available (contains signed STORJ URLs or ready-to-use paths)
+    if (video.mediaUrl) {
+      return video.mediaUrl;
+    }
+    // Fallback to storage_path for backward compatibility
+    return videoApi.getMediaUrl(video.storage_path);
   }, []);
 
   return (
     <div
-      className="min-h-screen relative overflow-x-hidden"
+      className="h-screen flex flex-col relative overflow-hidden"
       onDrop={handleDrop}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <input
-        ref={inputRef}
-        type="file"
-        accept="video/*"
-        multiple
-        className="hidden"
-        onChange={(e) => e.target.files && handleFiles(e.target.files)}
-      />
-
-      {/* Upload Progress Component */}
-      <UploadProgress
-        uploads={uploads}
-        onClose={clearUploads}
-        onRemove={removeUpload}
-      />
-
-      {/* Centered Drag-and-Drop Overlay */}
       {isDragOver && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-2xl pointer-events-none">
-          <div className="text-center p-16 bg-white/5 rounded-[20px] shadow-[0_0_100px_rgba(59,130,246,0.15)] border border-white/10 backdrop-blur-3xl transform scale-110">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 pointer-events-none">
+          <div className="text-center p-16 bg-white/5 rounded-[20px] shadow-[0_0_100px_rgba(59,130,246,0.15)] border border-white/10 transform scale-110">
             <div className="relative mb-8 flex justify-center">
               <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
               <Upload className="relative h-24 w-24 text-primary drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
@@ -235,7 +229,7 @@ export default function Dashboard() {
               variant="ghost"
               onClick={() => inputRef.current?.click()}
               disabled={isUploading}
-              className="px-4 sm:px-6 transition-all font-semibold text-white/70 hover:text-white"
+              className="px-4 sm:px-6 font-semibold text-white/70 hover:text-white"
             >
               <Upload className="h-4 w-4 mr-0 sm:mr-2" />
               <span className="hidden sm:inline">Upload video</span>
@@ -243,31 +237,26 @@ export default function Dashboard() {
             </Button>
           )
         }
-        rightContent={
-          <div className="flex items-center gap-4">
-            <StorageQuota />
-            {isAdmin && (
-              <Link to="/admin">
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white">
-                  <Settings className="h-5 w-5" />
-                </Button>
-              </Link>
-            )}
-          </div>
-        }
       />
 
-      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 flex flex-col min-h-[calc(100vh-64px)]">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 flex flex-col flex-1 overflow-hidden">
+        {isUploading && (
+          <UploadProgress
+            uploads={uploads}
+            onClose={clearUploads}
+            onRemove={removeUpload}
+          />
+        )}
         {loading ? (
-          <div className="flex-1 flex flex-col justify-center">
-            <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 backdrop-blur-xl rounded-[10px] border border-white/5">
+          <div className="flex-1 flex flex-col justify-center overflow-hidden">
+            <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 rounded-[10px] border border-white/5">
               <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
               <p className="mt-4 text-xl font-medium">Fetching your storage...</p>
             </div>
           </div>
         ) : videos.length === 0 ? (
-          <div className="flex-1 flex flex-col justify-center">
-            <div className="text-center py-24 bg-[#1d1d1f]/30 backdrop-blur-xl rounded-[10px] border border-dashed border-white/10">
+          <div className="flex-1 flex flex-col justify-center overflow-hidden">
+            <div className="text-center py-24 bg-[#1d1d1f]/30 rounded-[10px] border border-dashed border-white/10">
               <div className="max-w-md mx-auto space-y-4">
                 <div className="bg-primary/10 w-16 h-16 rounded-[10px] flex items-center justify-center mx-auto mb-6 border border-primary/20">
                   <Play className="h-8 w-8 text-primary" />
@@ -278,70 +267,110 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-auto">
-              {paginatedVideos.map((video) => (
+          <>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto pb-6">
+              {paginatedVideos.map((video, index) => (
                 <VideoCard
                   key={video.id}
                   video={video}
-                  videoUrl={getVideoUrl(video.storage_path)}
+                  videoUrl={getVideoUrl(video)}
                   onDelete={deleteVideo}
                   onUpdateTitle={updateTitle}
+                  onLoaded={handleVideoLoaded}
+                  animationDelay={index * 50}
+                  show={showVideos}
                 />
               ))}
             </div>
 
-            {/* Sticky Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="sticky bottom-0 z-40 mt-12 pt-8 pb-4 bg-[#0e0e10]/80 backdrop-blur-xl border-t border-white/5">
-                <div className="flex flex-col items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <Button
-                          key={page}
-                          variant="ghost"
-                          size="sm"
-                          className={`h-10 w-10 rounded-md transition-all ${currentPage === page
-                            ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20"
-                            : "text-white/50 hover:text-white hover:bg-white/5"
-                            }`}
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </Button>
-                      ))}
-                    </div>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-10 px-4 rounded-md text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
+            {/* Footer with Storage Quota and Pagination */}
+            <div className="sticky bottom-0 z-40 mt-auto pt-6 pb-4 bg-[#0e0e10] opacity-50 hover:opacity-100 transition-opacity">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Storage Quota - Left Column */}
+                <div className="flex items-center">
+                  <div className="w-full h-[72px] flex items-center">
+                    <StorageQuota />
                   </div>
-                  <p className="text-sm text-white/30 font-medium">
-                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, videos.length)} of {videos.length} videos
-                  </p>
+                </div>
+                
+                {/* Pagination Controls - Center Column */}
+                {totalPages > 1 ? (
+                  <div className="flex items-center justify-center">
+                    <div className="h-[72px] flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 rounded-md text-white/30 hover:bg-white/5 disabled:opacity-30"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        ‹
+                      </Button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant="ghost"
+                            size="sm"
+                            className={`h-8 w-8 p-0 rounded-md text-sm ${currentPage === page
+                              ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                              : "text-white/30 hover:bg-white/5"
+                              }`}
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 rounded-md text-white/30 hover:bg-white/5 disabled:opacity-30"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        ›
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <div className="h-[72px] flex items-center justify-center">
+                      <p className="text-sm text-white/30">
+                        {videos.length} video{videos.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Right Column - Link Blurb */}
+                <div className="hidden lg:flex items-center justify-center">
+                  <a
+                    href="https://1776.cloud/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-[72px] flex flex-col justify-center text-center cursor-pointer"
+                  >
+                    <p className="text-sm text-white/30">Connect, share and stay updated.</p>
+                    <p className="text-sm text-white/30">Be part of Von, browse and join the forum!</p>
+                  </a>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </main>
+
+      <input
+        type="file"
+        ref={inputRef}
+        onChange={(e) => e.target.files && handleFiles(e.target.files)}
+        className="hidden"
+        accept="video/*"
+        multiple
+      />
     </div>
   );
 }

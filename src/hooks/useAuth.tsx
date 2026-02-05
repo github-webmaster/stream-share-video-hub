@@ -1,47 +1,66 @@
 import { useEffect, useState } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "../integrations/supabase/client";
+import { authApi, ApiUser } from "../lib/api";
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<ApiUser | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    let isMounted = true;
+
+    authApi
+      .me()
+      .then(({ user: currentUser, roles: currentRoles }) => {
+        if (!isMounted) return;
+        setUser(currentUser);
+        setRoles(currentRoles);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setUser(null);
+        setRoles([]);
+      })
+      .finally(() => {
+        if (!isMounted) return;
         setLoading(false);
-      }
-    );
+      });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    try {
+      const result = await authApi.signIn(email, password);
+      setUser(result.user);
+      setRoles(result.roles);
+      window.location.href = '/';
+      return { error: null as Error | null };
+    } catch (error) {
+      return { error: error as Error };
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: window.location.origin }
-    });
-    return { error };
+    try {
+      const result = await authApi.signUp(email, password);
+      setUser(result.user);
+      setRoles(result.roles);
+      window.location.href = '/';
+      return { error: null as Error | null };
+    } catch (error) {
+      return { error: error as Error };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await authApi.signOut();
+    setUser(null);
+    setRoles([]);
+    window.location.href = '/';
   };
 
-  return { user, session, loading, signIn, signUp, signOut };
+  return { user, roles, loading, signIn, signUp, signOut };
 }

@@ -1,0 +1,51 @@
+# docker-compose-alt2.yml
+# Fresh deployment for testing at new ports (API: 8083, Frontend: 4002)
+#
+# IMPORTANT: DATABASE_URL must match credentials in docker/.env:
+#   POSTGRES_USER=postgres, POSTGRES_PASSWORD=postgres
+#   Use: postgres://postgres:postgres@db3:5432/streamshare
+
+services:
+  db3:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - ./docker/.env
+    volumes:
+      - db3_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5435:5432"
+
+  api3:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      - db3
+    env_file:
+      - ./docker/.env
+    environment:
+      PORT: 8083
+      DATABASE_URL: postgres://postgres:postgres@db3:5432/streamshare
+      STORAGE_PATH: /data/videos
+    volumes:
+      - ./data/videos:/data/videos
+    ports:
+      - "8083:8083"
+
+  frontend3:
+    build:
+      context: .
+      dockerfile: ./docker/frontend.Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8083
+        VITE_MEDIA_URL: /assets/optimized
+    restart: unless-stopped
+    depends_on:
+      - api3
+    ports:
+      - "4002:80"
+
+volumes:
+  db3_data:

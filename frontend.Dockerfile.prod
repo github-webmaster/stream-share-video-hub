@@ -1,0 +1,48 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including optional ones for build)
+RUN npm ci
+
+# Copy source files
+COPY . .
+
+# Build arguments for Vite
+ARG VITE_API_URL
+ARG VITE_MEDIA_URL
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_MEDIA_URL=${VITE_MEDIA_URL}
+ENV NODE_ENV=production
+
+# Build for production (no sourcemaps)
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Create non-root user
+RUN adduser -D -u 1001 appuser
+
+# Copy nginx configuration
+COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
+
+# Copy built assets from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Set proper permissions
+RUN chown -R appuser:appuser /usr/share/nginx/html \
+    && chown -R appuser:appuser /var/cache/nginx \
+    && chown -R appuser:appuser /var/log/nginx \
+    && touch /var/run/nginx.pid \
+    && chown appuser:appuser /var/run/nginx.pid
+
+# Switch to non-root user
+USER 1001
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

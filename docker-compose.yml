@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - ./docker/.env
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5433:5432"
+
+  postgrest:
+    image: postgrest/postgrest:v12.0.2
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - ./docker/.env
+    environment:
+      PGRST_DB_URI: ${DATABASE_URL}
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3002:3000"
+
+  api:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - ./docker/.env
+    environment:
+      PORT: 8081
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      STORAGE_PATH: /data/videos
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB}
+      ALLOWED_TYPES: ${ALLOWED_TYPES}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    volumes:
+      - ./data/videos:/data/videos
+    ports:
+      - "8081:8081"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./docker/frontend.Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_MEDIA_URL: ${VITE_MEDIA_URL}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "4000:80"
+
+volumes:
+  db_data:

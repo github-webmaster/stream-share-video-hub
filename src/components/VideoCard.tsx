@@ -13,16 +13,20 @@ interface Video {
   share_id: string;
   views: number;
   created_at: string;
+  size?: number | string; // in bytes (API may return as string)
 }
 
 interface VideoCardProps {
   video: Video;
   videoUrl: string;
-  onDelete: (id: string, storagePath: string) => void;
+  onDelete: (id: string) => void;
   onUpdateTitle: (id: string, title: string) => void;
+  onLoaded?: (videoId: string) => void;
+  animationDelay?: number;
+  show?: boolean;
 }
 
-export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: VideoCardProps) => {
+export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoaded, animationDelay = 0, show = false }: VideoCardProps) => {
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(video.title);
@@ -31,11 +35,18 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
   const videoRef = useRef<HTMLVideoElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fallback to show card if video takes too long to load metadata on mobile
+  // Notify parent when loaded
+  useEffect(() => {
+    if (isLoaded && onLoaded) {
+      onLoaded(video.id);
+    }
+  }, [isLoaded, onLoaded, video.id]);
+
+  // Fallback to show card if video takes too long to load metadata
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoaded(true);
-    }, 1500);
+    }, 800);
     return () => clearTimeout(timer);
   }, []);
 
@@ -76,9 +87,18 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
     }
   };
 
+  // Helper to format file size
+  function formatFileSize(size?: number | string): string {
+    const sizeNum = typeof size === 'string' ? parseInt(size, 10) : size;
+    if (typeof sizeNum !== 'number' || isNaN(sizeNum)) return '';
+    if (sizeNum < 1024 * 1024) return '>1MB';
+    if (sizeNum < 10 * 1024 * 1024) return `${(sizeNum / (1024 * 1024)).toFixed(1)}MB`;
+    return `${Math.round(sizeNum / (1024 * 1024))}MB`;
+  }
+
   return (
     <div
-      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 backdrop-blur-xl border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-700 ${isLoaded ? 'opacity-80 hover:opacity-100' : 'opacity-0'}`}
+      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] will-change-[opacity] ${show && isLoaded ? 'opacity-80 hover:opacity-100' : 'opacity-0'}`}
     >
       {/* Whole Card Link Layer */}
       <Link
@@ -107,14 +127,18 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
               onMouseLeave={handleMouseLeave}
               onLoadedData={() => setIsLoaded(true)}
             />
-            <div className="absolute right-2 top-2 rounded-md bg-black/60 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white border border-white/10">
+            <div className="absolute right-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white border border-white/10">
               {video.views} views
             </div>
           </Link>
         </div>
 
         <div className="p-3 space-y-3 flex flex-col flex-1">
-          <div className="h-[2.5rem] flex items-center justify-center pointer-events-auto">
+          {/* Title and File Size Row */}
+          <div 
+            className="flex items-center justify-center w-full min-h-[2.5rem] pointer-events-auto cursor-pointer hover:bg-white/5 rounded-md px-2 will-change-[background-color]"
+            onClick={editing ? undefined : startEdit}
+          >
             {editing ? (
               <Input
                 ref={inputRef}
@@ -125,15 +149,26 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
                   if (e.key === "Enter") saveTitle();
                   if (e.key === "Escape") setEditing(false);
                 }}
-                className="h-8 text-center text-sm bg-white/5 border-white/10 focus-visible:ring-1 focus-visible:ring-primary/20 rounded-md text-white"
+                className="h-8 text-sm bg-white/5 border-white/10 focus-visible:ring-1 focus-visible:ring-primary/20 rounded-md text-white flex-1 min-w-0 text-center"
               />
             ) : (
-              <h3
-                className="text-sm font-semibold text-center line-clamp-2 cursor-pointer hover:text-primary transition-colors px-2 text-white leading-tight"
-                onClick={startEdit}
-              >
-                {video.title}
-              </h3>
+              <>
+                <span
+                  className="text-sm font-semibold text-white leading-tight hover:text-primary flex-1 min-w-0 truncate text-center will-change-[color]"
+                  title={video.title}
+                >
+                  {video.title}
+                </span>
+                <span
+                  className="text-xs font-medium text-white/70 ml-2 text-right truncate select-none flex-shrink-0"
+                  style={{ opacity: 0.5 }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
+                  title={formatFileSize(video.size)}
+                >
+                  {formatFileSize(video.size)}
+                </span>
+              </>
             )}
           </div>
 
@@ -141,7 +176,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight gap-1.5 rounded-md bg-white/5 hover:bg-white/10 transition-colors text-white/70 hover:text-white border border-white/5"
+              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight gap-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/5 will-change-[background-color,color]"
               onClick={copyLink}
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -151,7 +186,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight gap-1.5 rounded-md bg-white/5 hover:bg-white/10 transition-colors text-primary hover:text-primary border border-white/5"
+              className="h-8 px-0 text-[9px] font-bold uppercase tracking-tight gap-1.5 rounded-md bg-white/5 hover:bg-white/10 text-primary hover:text-primary border border-white/5 will-change-[background-color]"
               asChild
             >
               <Link to={sharePath} target="_blank">
@@ -163,8 +198,8 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle }: Vid
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 px-0 text-[10px] font-bold uppercase tracking-tight text-destructive hover:text-white gap-1.5 rounded-md bg-transparent hover:bg-destructive opacity-30 hover:opacity-100 transition-all border border-destructive/50"
-              onClick={() => onDelete(video.id, video.storage_path)}
+              className="h-8 px-0 text-[10px] font-bold uppercase tracking-tight text-destructive hover:text-white gap-1.5 rounded-md bg-transparent hover:bg-destructive opacity-30 hover:opacity-100 border border-destructive/50 will-change-[background-color,color,opacity]"
+              onClick={() => onDelete(video.id)}
             >
               <Trash2 className="h-3 w-3" />
               Delete

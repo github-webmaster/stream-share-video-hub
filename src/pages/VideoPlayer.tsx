@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { supabase } from "../integrations/supabase/client";
+import { videoApi, type Video } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { Play, Loader2 } from "lucide-react";
 import { Navbar } from "../components/Navbar";
 
-interface Video {
-  id: string;
-  title: string;
-  storage_path: string;
-  views: number;
-}
+// Debug logging helper - only logs in development
+const debugLog = (message: string, ...args: unknown[]) => {
+  if (import.meta.env.DEV) {
+    console.log(message, ...args);
+  }
+};
 
 export default function VideoPlayer() {
   const { user, signOut } = useAuth();
@@ -25,34 +25,23 @@ export default function VideoPlayer() {
       if (!shareId) return;
 
       try {
-        console.log("[v0] Fetching video for shareId:", shareId);
+        debugLog("[VideoPlayer] Fetching video for shareId:", shareId);
 
-        const { data, error: fetchError } = await supabase
-          .rpc("get_public_video_by_share_id", { share_id_param: shareId });
-
-        if (fetchError || !data || data.length === 0) {
-          console.error("[v0] Error fetching video from RPC:", fetchError);
-          setError(true);
-          setLoading(false);
-          return;
-        }
-
-        const videoData = data[0] as Video;
-        console.log("[v0] Video data retrieved successfully:", videoData.title);
+        const videoData = await videoApi.getPublic(shareId);
+        debugLog("[VideoPlayer] Video data retrieved:", videoData.title);
         setVideo(videoData);
 
-        // Get public URL for video
-        const { data: urlData } = supabase.storage
-          .from("videos")
-          .getPublicUrl(videoData.storage_path);
-        setVideoUrl(urlData.publicUrl);
+        // Use mediaUrl if available, otherwise fall back to getMediaUrl
+        const url = videoData.mediaUrl || videoApi.getMediaUrl(videoData.storage_path);
+        debugLog("[VideoPlayer] Using video URL (sensitive - dev only)");
+        setVideoUrl(url);
 
         setLoading(false);
 
         // Increment views using security definer function
-        await supabase.rpc("increment_video_views", { video_share_id: shareId });
+        await videoApi.incrementViews(shareId);
       } catch (err) {
-        console.error("[v0] Error:", err);
+        debugLog("[VideoPlayer] Error:", err);
         setError(true);
         setLoading(false);
       }

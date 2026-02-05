@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../integrations/supabase/client";
+import { authApi } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -11,7 +10,6 @@ import { ChevronLeft, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ChangePassword() {
-    const { user } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [currentPassword, setCurrentPassword] = useState("");
@@ -34,29 +32,9 @@ export default function ChangePassword() {
         setLoading(true);
 
         try {
-            // 1. Verify current password by attempting to sign in
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-                email: user?.email || "",
-                password: currentPassword,
-            });
-
-            if (signInError) {
-                toast.error("Incorrect current password");
-                setLoading(false);
-                return;
-            }
-
-            // 2. Update password
-            const { error: updateError } = await supabase.auth.updateUser({
-                password: newPassword,
-            });
-
-            if (updateError) {
-                toast.error(updateError.message);
-            } else {
-                toast.success("Password updated successfully");
-                navigate("/");
-            }
+            await authApi.updatePassword(currentPassword, newPassword);
+            toast.success("Password updated successfully");
+            navigate("/");
         } catch (err) {
             console.error("Password change error:", err);
             toast.error("An unexpected error occurred");

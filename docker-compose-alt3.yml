@@ -1,0 +1,61 @@
+# docker-compose-alt3.yml
+# Fresh deployment for testing at ports (API: 8084, Frontend: 4003)
+#
+# IMPORTANT: DATABASE_URL must match credentials in docker/.env:
+#   POSTGRES_USER=postgres, POSTGRES_PASSWORD=postgres
+#   Use: postgres://postgres:postgres@db4:5432/streamshare
+#
+# The database is initialized with postgres/postgres credentials via docker/.env
+# Do NOT use streamshare:CHANGE_ME... - that user doesn't exist!
+
+services:
+  db4:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - ./docker/.env
+    volumes:
+      - db4_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d streamshare"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api4:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      db4:
+        condition: service_healthy
+    env_file:
+      - ./docker/.env
+    environment:
+      PORT: 8084
+      # CRITICAL: Must match POSTGRES_USER/POSTGRES_PASSWORD from docker/.env
+      DATABASE_URL: postgres://postgres:postgres@db4:5432/streamshare
+      STORAGE_PATH: /data/videos
+    volumes:
+      - ./data/videos:/data/videos
+    ports:
+      - "8084:8084"
+
+  frontend4:
+    build:
+      context: .
+      dockerfile: ./docker/frontend.Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8084
+        VITE_MEDIA_URL: /assets/optimized
+    restart: unless-stopped
+    depends_on:
+      - api4
+    ports:
+      - "4003:80"
+
+volumes:
+  db4_data:

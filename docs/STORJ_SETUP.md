@@ -2,22 +2,22 @@
 
 ## Overview
 
-This guide explains how to set up and configure STORJ S3 for decentralized video storage in StreamShare Hub. The implementation includes automatic fallback to Supabase Storage for reliability.
+This guide explains how to set up and configure STORJ S3 for decentralized video storage in StreamShare Hub. The implementation includes automatic fallback to local storage for reliability.
 
 ## Features
 
-✅ **Secure Upload Endpoint** - Edge function at `/api/upload/video`  
+✅ **Secure Upload API** - RESTful endpoints at `/api/upload/*`  
 ✅ **STORJ S3 Integration** - Decentralized cloud storage with AWS S3 compatibility  
 ✅ **File Validation** - Type, size, and user quota checking  
 ✅ **Admin Panel** - Easy configuration interface (admin only)  
 ✅ **Role-Based Access** - First registered user automatically becomes admin  
 ✅ **Error Handling** - Retry logic with exponential backoff  
 ✅ **Progress Tracking** - Real-time upload status monitoring  
-✅ **Automatic Fallback** - Falls back to Supabase if STORJ unavailable  
+✅ **Automatic Fallback** - Falls back to local storage if STORJ unavailable  
 
 ## Prerequisites
 
-1. Active Supabase project
+1. Docker & Docker Compose (for local deployment)
 2. STORJ account (sign up at https://www.storj.io/)
 3. STORJ S3 credentials (Access Key, Secret Key, Bucket)
 
@@ -108,13 +108,13 @@ WHERE id = (SELECT id FROM public.storage_config LIMIT 1);
    - File is validated (type, size, quota)
 
 2. **Authentication**
-   - Edge function verifies user session
+   - API verifies JWT token
    - Checks user quota availability
 
 3. **Storage Selection**
    - If STORJ is configured → Attempt STORJ upload
-   - If STORJ fails → Fallback to Supabase Storage
-   - If STORJ not configured → Use Supabase Storage
+   - If STORJ fails → Fallback to local storage
+   - If STORJ not configured → Use local storage
 
 4. **STORJ Upload Process**
    - Generate AWS4-HMAC-SHA256 signature
