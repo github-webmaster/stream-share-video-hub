@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import { videoApi } from "@/lib/api";
-import { useAuth } from "../hooks/useAuth";
 
 interface UploadProgress {
     filename: string;
@@ -48,13 +47,12 @@ interface StoredSession {
 export function UploadProvider({ children }: { children: React.ReactNode }) {
     const [uploads, setUploads] = useState<Map<string, UploadProgress>>(new Map());
     const [isUploading, setIsUploading] = useState(false);
-    const { user } = useAuth();
 
     // Track processing animation intervals
     const processingIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-    // Per-user serialization queue
-    const uploadQueues = useRef<Map<string, Promise<void>>>(new Map());
+    // Upload serialization queue (global for this browser session)
+    const uploadQueue = useRef<Promise<void>>(Promise.resolve());
 
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -284,7 +282,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
     const uploadFiles = useCallback(
         async (files: File[]): Promise<UploadResult[]> => {
-            const uid = user?.id || "anonymous";
             for (const file of files) {
                 updateUpload(file.name, { status: "pending", progress: 0 });
             }
@@ -300,12 +297,12 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                 return results;
             };
 
-            const previous = uploadQueues.current.get(uid) || Promise.resolve();
+            const previous = uploadQueue.current;
             const chained = previous.catch(() => undefined).then(() => task());
-            uploadQueues.current.set(uid, chained.then(() => undefined).catch(() => undefined));
+            uploadQueue.current = chained.then(() => undefined).catch(() => undefined);
             return (await chained) as UploadResult[];
         },
-        [uploadFile, updateUpload, user]
+        [uploadFile, updateUpload]
     );
 
     const clearUploads = useCallback(() => {
