@@ -55,6 +55,9 @@ const pool = new Pool({ connectionString: DATABASE_URL });
 
 const app = express();
 
+// Trust proxy (required when behind Cloudflare/nginx/Traefik)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
