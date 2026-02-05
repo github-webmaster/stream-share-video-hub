@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useUploadContext } from "../contexts/UploadContext";
 import { UploadProgress } from "./UploadProgress";
 import { toast } from "sonner";
 import { useAuth } from "../hooks/useAuth";
 import { useUserQuota } from "../hooks/useUserQuota";
-import { videoApi } from "../lib/api";
+
+declare global {
+    interface Window {
+        triggerGlobalUpload?: () => void;
+    }
+}
 
 export function GlobalUploadManager() {
     const { uploads, isUploading, uploadFiles, removeUpload, clearUploads } = useUploadContext();
@@ -14,6 +19,34 @@ export function GlobalUploadManager() {
     const [isDragOver, setIsDragOver] = useState(false);
     const dragCounter = useRef(0);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // Define handleFiles BEFORE any useEffect that references it
+    const handleFiles = useCallback(async (files: FileList) => {
+        const fileArray = Array.from(files);
+        const validFiles = fileArray.filter((file) => file.type.startsWith("video/"));
+        
+        if (validFiles.length !== fileArray.length) {
+            toast.error("Some files were skipped - only video files are allowed");
+        }
+
+        if (validFiles.length === 0) {
+            toast.error("No valid video files selected");
+            return;
+        }
+
+        const results = await uploadFiles(validFiles);
+        const successCount = results.filter((r) => r.success).length;
+        const failCount = results.filter((r) => !r.success).length;
+
+        if (successCount > 0) {
+            await refetchQuota();
+            toast.success(`${successCount} video${successCount !== 1 ? "s" : ""} uploaded successfully!`);
+        }
+
+        if (failCount > 0) {
+            toast.error(`${failCount} upload${failCount !== 1 ? "s" : ""} failed`);
+        }
+    }, [uploadFiles, refetchQuota]);
 
     // Global drag handlers
     useEffect(() => {
@@ -61,41 +94,8 @@ export function GlobalUploadManager() {
         };
     }, [user, handleFiles]);
 
-    const handleFiles = useCallback(async (files: FileList) => {
-        const fileArray = Array.from(files);
-        const validFiles = fileArray.filter((file) => file.type.startsWith("video/"));
-        
-        if (validFiles.length !== fileArray.length) {
-            toast.error("Some files were skipped - only video files are allowed");
-        }
-
-        if (validFiles.length === 0) {
-            toast.error("No valid video files selected");
-            return;
-        }
-
-        const results = await uploadFiles(validFiles);
-        const successCount = results.filter((r) => r.success).length;
-        const failCount = results.filter((r) => !r.success).length;
-
-        if (successCount > 0) {
-            await refetchQuota();
-            toast.success(`${successCount} video${successCount !== 1 ? "s" : ""} uploaded successfully!`);
-        }
-
-        if (failCount > 0) {
-            toast.error(`${failCount} upload${failCount !== 1 ? "s" : ""} failed`);
-        }
-    }, [uploadFiles, refetchQuota]);
-
     // Expose the trigger to window for Navbar to use
     useEffect(() => {
-        declare global {
-            interface Window {
-                triggerGlobalUpload?: () => void;
-            }
-        }
-        
         window.triggerGlobalUpload = () => {
             inputRef.current?.click();
         };

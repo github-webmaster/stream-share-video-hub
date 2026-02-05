@@ -34,3 +34,4 @@ backups/*.sql.gz
 
 # Docker volumes
 data/videos/
+*.zip

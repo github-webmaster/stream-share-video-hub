@@ -12,6 +12,12 @@ import {
     DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
+declare global {
+    interface Window {
+        triggerGlobalUpload?: () => void;
+    }
+}
+
 interface NavbarProps {
     centerContent?: React.ReactNode;
     rightContent?: React.ReactNode;
@@ -24,11 +30,6 @@ export function Navbar({ centerContent, rightContent }: NavbarProps) {
     const navigate = useNavigate();
 
     const handleUploadClick = () => {
-        declare global {
-            interface Window {
-                triggerGlobalUpload?: () => void;
-            }
-        }
         window.triggerGlobalUpload?.();
     };
 
