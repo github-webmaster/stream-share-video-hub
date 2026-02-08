@@ -525,7 +525,7 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
       [email]
     );
     const user = rows[0];
-    if (!user) {
+    if (!user || !user.password_hash) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
