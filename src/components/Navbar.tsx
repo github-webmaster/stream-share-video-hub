@@ -41,8 +41,8 @@ export function Navbar({ centerContent, rightContent }: NavbarProps) {
                     <div className="flex-1 flex justify-start">
                         <Link to="/" className="flex items-center gap-2 text-lg font-semibold active:opacity-70 whitespace-nowrap">
                             <Play className="h-5 w-5 fill-primary text-primary" />
-                            <span className="hidden xs:inline">StreamShare Hub</span>
-                            <span className="xs:hidden">Hub</span>
+                            <span className="hidden sm:inline">StreamShare Hub</span>
+                            <span className="sm:hidden">Hub</span>
                         </Link>
                     </div>
 

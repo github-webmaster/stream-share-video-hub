@@ -100,7 +100,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
       {/* Interactive Content Layer */}
       <div className="relative z-10 pointer-events-none flex flex-col h-full">
-        <div className="relative aspect-video bg-black/20 overflow-hidden pointer-events-auto">
+        <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden pointer-events-auto">
           <Link
             to={sharePath}
             target="_blank"
@@ -113,10 +113,20 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
               muted
               playsInline
               preload="metadata"
+              poster=""
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
               onLoadedData={() => setIsLoaded(true)}
+              onError={() => setIsLoaded(true)}
             />
+            {/* Fallback overlay for mobile when video doesn't load thumbnail */}
+            {!isLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">
+                <svg className="w-12 h-12 text-white/30" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </div>
+            )}
             <div className="absolute right-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white border border-white/10">
               {video.views} views
             </div>
