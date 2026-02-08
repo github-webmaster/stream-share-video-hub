@@ -145,14 +145,37 @@ app.use(helmet({
   },
 }));
 
-// Rate limiting - 15 minutes window, 500 requests max per IP
+// Helper to check if request is from admin (for rate limit bypass)
+const isAdminRequest = async (req) => {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) return false;
+    
+    const payload = jwt.verify(token, JWT_SECRET);
+    const { rows } = await pool.query(
+      "SELECT role FROM public.user_roles WHERE user_id = $1 AND role = 'admin'",
+      [payload.sub]
+    );
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+};
+
+// Rate limiting - 15 minutes window, 500 requests max per IP (admins bypass)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: "Too many requests from this IP, please try again later.",
-  skip: (req) => req.path === "/health" || req.path === "/api/auth/me", // Skip for health and auth checks
+  skip: async (req) => {
+    // Always skip health checks and auth/me
+    if (req.path === "/health" || req.path === "/api/auth/me") return true;
+    // Skip rate limiting for admin users
+    return await isAdminRequest(req);
+  },
 });
 
 app.use(limiter);
