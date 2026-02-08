@@ -145,22 +145,22 @@ app.use(helmet({
   },
 }));
 
-// Rate limiting - 15 minutes window, 200 requests max per IP
+// Rate limiting - 15 minutes window, 500 requests max per IP
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 200,
+  limit: 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: "Too many requests from this IP, please try again later.",
-  skip: (req) => req.path === "/health", // Skip rate limiting for health checks
+  skip: (req) => req.path === "/health" || req.path === "/api/auth/me", // Skip for health and auth checks
 });
 
 app.use(limiter);
 
-// Login-specific rate limiting (10 failed attempts per 15 minutes)
+// Login-specific rate limiting (20 failed attempts per 15 minutes)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 20,
   skipSuccessfulRequests: true,
   message: "Too many login attempts, please try again later.",
 });
