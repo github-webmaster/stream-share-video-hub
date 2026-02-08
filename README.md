@@ -335,17 +335,37 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ### 🔄 Automated Backups
 
-Backups run **automatically at 2 AM daily** and are stored in `/srv/app/backups/`
+The system includes a built-in automated backup service for the PostgreSQL database.
 
-**Restore from backup:**
+**Features:**
+- **Schedule**: Defaults to 2 AM daily (configurable in Admin Panel).
+- **Retention**: Keeps last 30 backups (configurable).
+- **Storage**: Backups are stored in `/backups` (mounted to host `server/backups`).
+- **Scope**: Backs up the **Database structure and data only**. Video files are stored separately (disk or S3) and must be backed up independently.
+
+**Managing Backups:**
+1. Go to **Admin Panel > Backups**.
+2. Enable/Disable automated backups.
+3. Update the Cron schedule and retention policy.
+4. Manually trigger a backup.
+5. Download or view recent backup files.
+
+**Restoring from Backup:**
+
+To restore a backup, you must use the command line on the host machine.
+
 ```bash
-# List backups
-ls -lh backups/
+# 1. List backups to find the usage filename
+ls -lh ./server/backups/
 
-# Restore specific backup
-gunzip < backups/db-backup-20260204_020000.sql.gz | \
+# 2. Restore specific backup (replace filename)
+# This command pipes the decompressed SQL directly into the database container
+gunzip -c ./server/backups/db-backup-YYYYMMDD-HHMMSS.sql.gz | \
   docker exec -i streamshare-db psql -U streamshare -d streamshare
 ```
+
+> **Warning**: Restoring a backup will overwrite the current database state. Ensure you have a fresh backup before restoring if possible.
+
 
 ---
 

@@ -15,6 +15,62 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
 import pino from "pino";
+import BackupService from './services/backupService.js';
+
+// --- Backup API Routes ---
+
+app.get("/api/admin/backups", authRequired, requireAdmin, async (_req, res) => {
+  try {
+    const defaultSchedule = '0 2 * * *';
+    const result = await pool.query(
+      "SELECT backup_enabled, backup_schedule, backup_retention_days FROM public.storage_config LIMIT 1"
+    );
+    const config = result.rows[0] || { backup_enabled: false, backup_schedule: defaultSchedule, backup_retention_days: 30 };
+    const files = await backupService.listBackups();
+
+    return res.json({ config, files });
+  } catch (error) {
+    console.error("[backup] Failed to fetch info:", error);
+    return res.status(500).json({ error: "Failed to fetch backup info" });
+  }
+});
+
+app.post("/api/admin/backups/config", authRequired, requireAdmin, async (req, res) => {
+  const { enabled, schedule, retentionDays } = req.body;
+  try {
+    // Upsert config
+    await pool.query(`
+      INSERT INTO public.storage_config (id, backup_enabled, backup_schedule, backup_retention_days)
+      VALUES (1, $1, $2, $3)
+      ON CONFLICT (id) DO UPDATE SET
+        backup_enabled = EXCLUDED.backup_enabled,
+        backup_schedule = EXCLUDED.backup_schedule,
+        backup_retention_days = EXCLUDED.backup_retention_days,
+        updated_at = NOW()
+    `, [enabled, schedule, retentionDays]);
+
+    await backupService.refreshSchedule();
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[backup] Failed to update config:", error);
+    return res.status(500).json({ error: "Failed to update backup config" });
+  }
+});
+
+app.post("/api/admin/backups/run", authRequired, requireAdmin, async (_req, res) => {
+  try {
+    const result = await backupService.runBackup();
+    if (result.success) {
+      return res.json({ success: true, file: result.file });
+    } else {
+      return res.status(500).json({ error: result.message });
+    }
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error during backup" });
+  }
+});
+import compression from "compression";
+import pino from "pino";
 
 dotenv.config();
 
@@ -51,7 +107,16 @@ if (!JWT_SECRET) {
 
 fs.mkdirSync(STORAGE_BASE, { recursive: true });
 
-const pool = new Pool({ connectionString: DATABASE_URL });
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+});
+
+// Initialize Backup Service
+const backupService = new BackupService(pool);
+setTimeout(() => {
+  backupService.init().catch(err => console.error('[Backup] Failed to start service:', err));
+}, 5000);
 
 const app = express();
 
@@ -139,7 +204,6 @@ const upload = multer({
 // Multer error handling middleware
 const handleMulterError = (err, req, res, next) => {
   debugLog(`[multer] Error occurred:`, err.message);
-  debugLog(`[multer] Error code:`, err.code);
   debugLog(`[multer] Request headers:`, Object.fromEntries(Object.entries(req.headers).filter(([key]) => !key.toLowerCase().includes('authorization'))));
 
   if (err instanceof multer.MulterError) {
@@ -160,9 +224,37 @@ const handleMulterError = (err, req, res, next) => {
   return res.status(500).json({ error: "File upload failed" });
 };
 
+// --- Caching ---
+const cache = {
+  config: { data: null, expiresAt: 0 },
+  roles: new Map(), // userId -> { data: string[], expiresAt: number }
+};
+
+const CACHE_TTL = {
+  CONFIG: 5 * 60 * 1000, // 5 minutes
+  ROLES: 60 * 1000,      // 1 minute
+};
+
 const getStorageConfig = async () => {
-  const { rows } = await pool.query("SELECT * FROM public.storage_config ORDER BY created_at LIMIT 1");
-  return rows[0] || null;
+  const now = Date.now();
+  if (cache.config.data && cache.config.expiresAt > now) {
+    return cache.config.data;
+  }
+
+  try {
+    const { rows } = await pool.query("SELECT * FROM public.storage_config ORDER BY created_at LIMIT 1");
+    if (rows.length > 0) {
+      cache.config = {
+        data: rows[0],
+        expiresAt: now + CACHE_TTL.CONFIG
+      };
+      return rows[0];
+    }
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch storage config:", error);
+    return null;
+  }
 };
 
 const buildStorjSignedUrl = async (config, key) => {
@@ -364,11 +456,29 @@ const authRequired = (req, res, next) => {
 };
 
 const getUserRoles = async (userId) => {
-  const { rows } = await pool.query(
-    "SELECT role FROM public.user_roles WHERE user_id = $1",
-    [userId]
-  );
-  return rows.map((row) => row.role);
+  const now = Date.now();
+  const cached = cache.roles.get(userId);
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT role FROM public.user_roles WHERE user_id = $1",
+      [userId]
+    );
+    const roles = rows.map((row) => row.role);
+
+    cache.roles.set(userId, {
+      data: roles,
+      expiresAt: now + CACHE_TTL.ROLES
+    });
+
+    return roles;
+  } catch (error) {
+    console.error("Failed to fetch user roles:", error);
+    return [];
+  }
 };
 
 const requireAdmin = async (req, res, next) => {
@@ -814,17 +924,25 @@ app.get("/api/user-quota", authRequired, async (req, res) => {
 
 app.get("/api/videos", authRequired, async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const offset = (page - 1) * limit;
+
     const { rows } = await pool.query(
-      "SELECT id, title, filename, storage_path, share_id, views, created_at, size FROM public.videos WHERE user_id = $1 ORDER BY created_at DESC",
-      [req.user.id]
+      "SELECT id, title, filename, storage_path, share_id, views, created_at, size, COUNT(*) OVER() as total_count FROM public.videos WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+      [req.user.id, limit, offset]
     );
+
+    const total = rows.length > 0 ? parseInt(rows[0].total_count) : 0;
 
     const config = await getStorageConfig();
     const storjEnabled = config?.provider === "storj" && config.storj_access_key && config.storj_secret_key;
 
     // Enhance videos with mediaUrl
     const enhancedVideos = await Promise.all(
-      rows.map(async (video) => {
+      rows.map(async (row) => {
+        // eslint-disable-next-line no-unused-vars
+        const { total_count, ...video } = row;
         let mediaUrl = video.storage_path;
 
         try {
@@ -853,7 +971,7 @@ app.get("/api/videos", authRequired, async (req, res) => {
       })
     );
 
-    return res.json({ videos: enhancedVideos });
+    return res.json({ videos: enhancedVideos, total, page, limit });
   } catch (error) {
     console.error("[videos] Error:", error);
     return res.status(500).json({ error: "Failed to fetch videos" });
@@ -1608,6 +1726,14 @@ app.post("/api/admin/cleanup-expired-sessions", authRequired, requireAdmin, asyn
     console.error(`[chunked-upload] Error cleaning up expired sessions:`, error);
     return res.status(500).json({ error: "Failed to cleanup expired sessions" });
   }
+});
+
+app.post("/api/admin/cache/clear", authRequired, requireAdmin, (req, res) => {
+  cache.config.data = null;
+  cache.config.expiresAt = 0;
+  cache.roles.clear();
+  debugLog(`[cache] Cache cleared by admin ${req.user.id}`);
+  return res.json({ success: true, message: "Cache cleared" });
 });
 
 // ==================== SINGLE-SHOT UPLOAD (Legacy/Small Files) ====================

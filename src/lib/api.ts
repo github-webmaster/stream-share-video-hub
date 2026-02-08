@@ -151,9 +151,9 @@ export interface ChunkUploadResult {
 }
 
 export const videoApi = {
-  async list(): Promise<Video[]> {
-    const data = await apiFetch("/api/videos", { method: "GET" }, true);
-    return data.videos || [];
+  async list(page = 1, limit = 12): Promise<{ videos: Video[]; total: number }> {
+    const data = await apiFetch(`/api/videos?page=${page}&limit=${limit}`, { method: "GET" }, true);
+    return { videos: data.videos || [], total: data.total || 0 };
   },
   async updateTitle(id: string, title: string): Promise<void> {
     await apiFetch(
@@ -365,6 +365,22 @@ export const adminApi = {
       },
       true
     );
+  },
+  async clearCache(): Promise<{ success: boolean; message: string }> {
+    const data = await apiFetch("/api/admin/cache/clear", { method: "POST" }, true);
+    return data;
+  },
+  async getBackupConfig(): Promise<{ config: any; files: any[] }> {
+    return apiFetch("/api/admin/backups", { method: "GET" }, true);
+  },
+  async updateBackupConfig(config: { enabled: boolean; schedule: string; retentionDays: number }): Promise<void> {
+    await apiFetch("/api/admin/backups/config", {
+      method: "POST",
+      body: JSON.stringify(config),
+    }, true);
+  },
+  async runBackup(): Promise<{ success: boolean; file: string }> {
+    return apiFetch("/api/admin/backups/run", { method: "POST" }, true);
   },
 };
 

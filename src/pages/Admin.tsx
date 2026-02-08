@@ -43,7 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type Section = "storage" | "users";
+type Section = "storage" | "users" | "backups";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -78,6 +78,12 @@ export default function Admin() {
   const [newQuota, setNewQuota] = useState("");
   const [isQuotaDialogOpen, setIsQuotaDialogOpen] = useState(false);
 
+  // Backup State
+  const [backupConfig, setBackupConfig] = useState({ enabled: false, schedule: "0 2 * * *", retentionDays: 30 });
+  const [backups, setBackups] = useState<any[]>([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [runningBackup, setRunningBackup] = useState(false);
+
   useEffect(() => {
     if (config) {
       setUseStorj(config.provider === "storj");
@@ -94,7 +100,7 @@ export default function Admin() {
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace("#", "");
-      if (hash === "storage" || hash === "users") {
+      if (hash === "storage" || hash === "users" || hash === "backups") {
         setActiveSection(hash as Section);
       }
     };
@@ -105,10 +111,33 @@ export default function Admin() {
 
   // Fetch users when section changes
   useEffect(() => {
-    if (activeSection === "users" && isAdmin) {
-      fetchUsers();
-    }
+    const loadData = async () => {
+      if (activeSection === "users" && isAdmin) {
+        await fetchUsers();
+      }
+      if (activeSection === "backups" && isAdmin) {
+        await fetchBackups();
+      }
+    };
+    loadData();
   }, [activeSection, isAdmin]);
+
+  const fetchBackups = async () => {
+    setLoadingBackups(true);
+    try {
+      const data = await adminApi.getBackupConfig();
+      setBackupConfig({
+        enabled: data.config.backup_enabled,
+        schedule: data.config.backup_schedule || "0 2 * * *",
+        retentionDays: data.config.backup_retention_days || 30
+      });
+      setBackups(data.files);
+    } catch (error) {
+      toast.error("Failed to load backup info");
+    } finally {
+      setLoadingBackups(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -239,6 +268,45 @@ export default function Admin() {
     }
   };
 
+  const handleBackupSave = async () => {
+    try {
+      await adminApi.updateBackupConfig(backupConfig);
+      toast.success("Backup configuration saved");
+    } catch (error) {
+      toast.error("Failed to save backup config");
+    }
+  };
+
+  const handleRunBackup = async () => {
+    setRunningBackup(true);
+    try {
+      const result = await adminApi.runBackup();
+      if (result.success) {
+        toast.success(`Backup created: ${result.file}`);
+        fetchBackups();
+      } else {
+        toast.error("Backup failed");
+      }
+    } catch (error) {
+      toast.error("Backup failed to start");
+    } finally {
+      setRunningBackup(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    try {
+      const result = await adminApi.clearCache();
+      if (result.success) {
+        toast.success("Cache cleared successfully");
+      } else {
+        toast.error("Failed to clear cache");
+      }
+    } catch (error) {
+      toast.error("Failed to clear cache");
+    }
+  };
+
   if (authLoading || adminLoading || configLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -294,6 +362,17 @@ export default function Admin() {
             >
               <Users className="h-4 w-4" />
               User Management
+            </button>
+            <button
+              onClick={() => {
+                setActiveSection("backups");
+                window.location.hash = "backups";
+              }}
+              className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${activeSection === "backups" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
+                }`}
+            >
+              <Database className="h-4 w-4" />
+              Backups
             </button>
           </aside>
 
@@ -482,6 +561,27 @@ export default function Admin() {
                   </CardContent>
                 </Card>
 
+                <Card className="bg-[#1d1d1f] border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white">System Maintenance</CardTitle>
+                    <CardDescription>Perform system maintenance tasks.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-white">Clear System Cache</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Clear the server-side cache for configuration and user roles.
+                          Useful if you made changes directly to the database.
+                        </p>
+                      </div>
+                      <Button variant="outline" onClick={handleClearCache} className="border-white/20 hover:bg-white/10 hover:text-white text-white">
+                        Clear Cache
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Save Button */}
                 <div className="flex justify-end">
                   <Button onClick={handleStorageSave} disabled={saving} className="min-w-32">
@@ -582,6 +682,103 @@ export default function Admin() {
                                     </Button>
                                   )}
                                 </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {activeSection === "backups" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <Card className="bg-[#1d1d1f] border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Database className="h-5 w-5" />
+                      Automated Backups
+                    </CardTitle>
+                    <CardDescription>
+                      Configure automated database backups using <code className="bg-black/30 px-1 rounded">pg_dump</code>.
+                      Backups are stored in <code className="bg-black/30 px-1 rounded">server/backups</code>.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-white">Enable Automated Backups</Label>
+                        <p className="text-sm text-muted-foreground">Run backups automatically on a schedule</p>
+                      </div>
+                      <Switch
+                        checked={backupConfig.enabled}
+                        onCheckedChange={(checked) => setBackupConfig({ ...backupConfig, enabled: checked })}
+                      />
+                    </div>
+
+                    {backupConfig.enabled && (
+                      <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-white/10">
+                        <div className="space-y-2">
+                          <Label className="text-white">Cron Schedule</Label>
+                          <Input
+                            value={backupConfig.schedule}
+                            onChange={(e) => setBackupConfig({ ...backupConfig, schedule: e.target.value })}
+                            placeholder="0 2 * * *"
+                            className="bg-black/20 border-white/10"
+                          />
+                          <p className="text-xs text-muted-foreground">Default: 0 2 * * * (2 AM daily)</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-white">Retention (Days)</Label>
+                          <Input
+                            type="number"
+                            value={backupConfig.retentionDays}
+                            onChange={(e) => setBackupConfig({ ...backupConfig, retentionDays: parseInt(e.target.value) })}
+                            className="bg-black/20 border-white/10"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between pt-4">
+                      <Button variant="outline" onClick={handleRunBackup} disabled={runningBackup} className="border-white/20 text-white hover:bg-white/10">
+                        {runningBackup ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />}
+                        Run Backup Now
+                      </Button>
+                      <Button onClick={handleBackupSave}>Save Configuration</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-[#1d1d1f] border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white">Recent Backups</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingBackups ? (
+                      <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                    ) : backups.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-4">No backups found.</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-white/10">
+                            <TableHead className="text-muted-foreground">Filename</TableHead>
+                            <TableHead className="text-muted-foreground">Date</TableHead>
+                            <TableHead className="text-muted-foreground text-right">Size</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {backups.map((f) => (
+                            <TableRow key={f.name} className="border-white/10 hover:bg-white/5">
+                              <TableCell className="font-mono text-xs text-white">{f.name}</TableCell>
+                              <TableCell className="text-muted-foreground text-sm">
+                                {new Date(f.date).toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-right text-sm">
+                                {(f.size / 1024 / 1024).toFixed(2)} MB
                               </TableCell>
                             </TableRow>
                           ))}

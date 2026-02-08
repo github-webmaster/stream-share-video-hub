@@ -4,17 +4,7 @@ import { Copy, Check, Trash2, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
-interface Video {
-  id: string;
-  user_id: string;
-  title: string;
-  storage_path: string;
-  filename: string;
-  share_id: string;
-  views: number;
-  created_at: string;
-  size?: number | string; // in bytes (API may return as string)
-}
+import { Video } from "../lib/api";
 
 interface VideoCardProps {
   video: Video;
@@ -98,7 +88,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] will-change-[opacity] ${show && isLoaded ? 'opacity-80 hover:opacity-100' : 'opacity-0'}`}
+      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] will-change-[opacity] ${show ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
     >
       {/* Whole Card Link Layer */}
       <Link
@@ -110,7 +100,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
       {/* Interactive Content Layer */}
       <div className="relative z-10 pointer-events-none flex flex-col h-full">
-        <div className="relative aspect-[16/8.5] bg-black/20 overflow-hidden pointer-events-auto">
+        <div className="relative aspect-video bg-black/20 overflow-hidden pointer-events-auto">
           <Link
             to={sharePath}
             target="_blank"
@@ -135,7 +125,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
         <div className="p-3 space-y-3 flex flex-col flex-1">
           {/* Title and File Size Row */}
-          <div 
+          <div
             className="flex items-center justify-center w-full min-h-[2.5rem] pointer-events-auto cursor-pointer hover:bg-white/5 rounded-md px-2 will-change-[background-color]"
             onClick={editing ? undefined : startEdit}
           >

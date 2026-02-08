@@ -7,56 +7,33 @@ import { useUpload } from "../hooks/useUpload";
 import { useAdmin } from "../hooks/useAdmin";
 import { useUserQuota } from "../hooks/useUserQuota";
 import { toast } from "sonner";
-import { Loader2, Upload, Play, Settings } from "lucide-react";
+import { Loader2, Upload, Play } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { UploadProgress } from "../components/UploadProgress";
 import { StorageQuota } from "../components/StorageQuota";
-import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const [videos, setVideos] = useState<Video[]>([]);
+  const [totalVideos, setTotalVideos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showVideos, setShowVideos] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const { user } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { isAdmin } = useAdmin();
   const { refetch: refetchQuota } = useUserQuota();
   const { uploads, isUploading, uploadFiles, removeUpload, clearUploads } = useUpload();
   const inputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
-  const loadedVideos = useRef(new Set<string>());
 
-  const totalPages = Math.ceil(videos.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedVideos = videos.slice(startIndex, startIndex + itemsPerPage);
-
-  const handleVideoLoaded = useCallback((id: string) => {
-    loadedVideos.current.add(id);
-    if (loadedVideos.current.size >= Math.min(3, paginatedVideos.length)) {
-      setShowVideos(true);
-    }
-  }, [paginatedVideos.length]);
+  const totalPages = Math.ceil(totalVideos / itemsPerPage);
 
   useEffect(() => {
     if (user) {
-      fetchVideos();
+      fetchVideos(currentPage, itemsPerPage);
     }
-  }, [user]);
-
-  // Reset show state only when page changes
-  useEffect(() => {
-    setShowVideos(false);
-    loadedVideos.current.clear();
-    
-    // Fallback timer to show videos if metadata loading is slow
-    const timer = setTimeout(() => {
-      setShowVideos(true);
-    }, 1500);
-    
-    return () => clearTimeout(timer);
-  }, [currentPage]);
+  }, [user, currentPage, itemsPerPage]);
 
   // Adaptive Grid Density
   useEffect(() => {
@@ -91,10 +68,12 @@ export default function Dashboard() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isUploading]);
 
-  const fetchVideos = async () => {
+  const fetchVideos = async (page: number, limit: number) => {
+    setLoading(true);
     try {
-      const data = await videoApi.list();
-      setVideos(data || []);
+      const data = await videoApi.list(page, limit);
+      setVideos(data.videos || []);
+      setTotalVideos(data.total || 0);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch videos";
       toast.error(errorMessage);
@@ -105,7 +84,7 @@ export default function Dashboard() {
 
   const handleFiles = async (files: FileList) => {
     const fileArray = Array.from(files);
-    
+
     // Validate file types
     const validFiles = fileArray.filter((file) => file.type.startsWith("video/"));
     if (validFiles.length !== fileArray.length) {
@@ -118,12 +97,13 @@ export default function Dashboard() {
     }
 
     const results = await uploadFiles(validFiles);
-    
+
     const successCount = results.filter((r) => r.success).length;
     const failCount = results.filter((r) => !r.success).length;
 
     if (successCount > 0) {
-      await fetchVideos();
+      // Refresh current page
+      await fetchVideos(currentPage, itemsPerPage);
       await refetchQuota();
       toast.success(`${successCount} video${successCount !== 1 ? "s" : ""} uploaded successfully!`);
     }
@@ -166,11 +146,11 @@ export default function Dashboard() {
     try {
       await videoApi.remove(id);
 
-      setVideos(videos.filter((v) => v.id !== id));
-
       // If we deleted the last item on current page, go back
-      if (paginatedVideos.length === 1 && currentPage > 1) {
+      if (videos.length === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1);
+      } else {
+        fetchVideos(currentPage, itemsPerPage);
       }
 
       await refetchQuota();
@@ -247,7 +227,7 @@ export default function Dashboard() {
             onRemove={removeUpload}
           />
         )}
-        {loading ? (
+        {loading && videos.length === 0 ? (
           <div className="flex-1 flex flex-col justify-center overflow-hidden">
             <div className="text-center text-muted-foreground py-24 bg-[#1d1d1f]/50 rounded-[10px] border border-white/5">
               <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
@@ -269,16 +249,15 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto pb-6">
-              {paginatedVideos.map((video, index) => (
+              {videos.map((video, index) => (
                 <VideoCard
                   key={video.id}
                   video={video}
                   videoUrl={getVideoUrl(video)}
                   onDelete={deleteVideo}
                   onUpdateTitle={updateTitle}
-                  onLoaded={handleVideoLoaded}
                   animationDelay={index * 50}
-                  show={showVideos}
+                  show={true}
                 />
               ))}
             </div>
@@ -292,7 +271,7 @@ export default function Dashboard() {
                     <StorageQuota />
                   </div>
                 </div>
-                
+
                 {/* Pagination Controls - Center Column */}
                 {totalPages > 1 ? (
                   <div className="flex items-center justify-center">
@@ -302,7 +281,7 @@ export default function Dashboard() {
                         size="sm"
                         className="h-8 w-8 p-0 rounded-md text-white/30 hover:bg-white/5 disabled:opacity-30"
                         onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
+                        disabled={currentPage === 1 || loading}
                       >
                         ‹
                       </Button>
@@ -318,6 +297,7 @@ export default function Dashboard() {
                               : "text-white/30 hover:bg-white/5"
                               }`}
                             onClick={() => setCurrentPage(page)}
+                            disabled={loading}
                           >
                             {page}
                           </Button>
@@ -329,7 +309,7 @@ export default function Dashboard() {
                         size="sm"
                         className="h-8 w-8 p-0 rounded-md text-white/30 hover:bg-white/5 disabled:opacity-30"
                         onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage === totalPages || loading}
                       >
                         ›
                       </Button>
@@ -339,12 +319,12 @@ export default function Dashboard() {
                   <div className="flex items-center justify-center">
                     <div className="h-[72px] flex items-center justify-center">
                       <p className="text-sm text-white/30">
-                        {videos.length} video{videos.length !== 1 ? "s" : ""}
+                        {totalVideos} video{totalVideos !== 1 ? "s" : ""}
                       </p>
                     </div>
                   </div>
                 )}
-                
+
                 {/* Right Column - Link Blurb */}
                 <div className="hidden lg:flex items-center justify-center">
                   <a
