@@ -977,22 +977,47 @@ app.get("/api/admin/reconcile-storage", authRequired, requireAdmin, async (_req,
 
 app.get("/api/admin/users", authRequired, requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT 
-        u.id, 
-        u.email, 
-        u.created_at,
-        COALESCE(q.storage_used_bytes, 0) as storage_used,
-        COALESCE(q.storage_limit_bytes, 0) as storage_limit,
-        COALESCE(q.upload_count, 0) as upload_count,
-        q.video_expiration_days,
-        array_remove(array_agg(r.role), NULL) as roles
-      FROM public.users u
-      LEFT JOIN public.user_quotas q ON u.id = q.user_id
-      LEFT JOIN public.user_roles r ON u.id = r.user_id
-      GROUP BY u.id, u.email, u.created_at, q.storage_used_bytes, q.storage_limit_bytes, q.upload_count, q.video_expiration_days
-      ORDER BY u.created_at DESC
-    `);
+    // Try query with video_expiration_days first (new schema)
+    let rows;
+    try {
+      const result = await pool.query(`
+        SELECT 
+          u.id, 
+          u.email, 
+          u.created_at,
+          COALESCE(q.storage_used_bytes, 0) as storage_used,
+          COALESCE(q.storage_limit_bytes, 0) as storage_limit,
+          COALESCE(q.upload_count, 0) as upload_count,
+          q.video_expiration_days,
+          array_remove(array_agg(r.role), NULL) as roles
+        FROM public.users u
+        LEFT JOIN public.user_quotas q ON u.id = q.user_id
+        LEFT JOIN public.user_roles r ON u.id = r.user_id
+        GROUP BY u.id, u.email, u.created_at, q.storage_used_bytes, q.storage_limit_bytes, q.upload_count, q.video_expiration_days
+        ORDER BY u.created_at DESC
+      `);
+      rows = result.rows;
+    } catch (colError) {
+      // Fallback for old schema without video_expiration_days column
+      console.log("[admin] Using fallback users query (video_expiration_days column may not exist)");
+      const result = await pool.query(`
+        SELECT 
+          u.id, 
+          u.email, 
+          u.created_at,
+          COALESCE(q.storage_used_bytes, 0) as storage_used,
+          COALESCE(q.storage_limit_bytes, 0) as storage_limit,
+          COALESCE(q.upload_count, 0) as upload_count,
+          NULL as video_expiration_days,
+          array_remove(array_agg(r.role), NULL) as roles
+        FROM public.users u
+        LEFT JOIN public.user_quotas q ON u.id = q.user_id
+        LEFT JOIN public.user_roles r ON u.id = r.user_id
+        GROUP BY u.id, u.email, u.created_at, q.storage_used_bytes, q.storage_limit_bytes, q.upload_count
+        ORDER BY u.created_at DESC
+      `);
+      rows = result.rows;
+    }
     return res.json({ users: rows });
   } catch (error) {
     console.error("[admin] Failed to list users:", error);
