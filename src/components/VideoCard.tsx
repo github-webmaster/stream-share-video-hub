@@ -88,7 +88,8 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 border border-white/5 flex flex-col h-full shadow-[0_10px_30px_rgba(0,0,0,0.2)] will-change-[opacity] ${show ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
+      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 border border-white/5 flex flex-col shadow-[0_10px_30px_rgba(0,0,0,0.2)] will-change-[opacity] ${show ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
+      style={{ minHeight: '300px' }}
     >
       {/* Whole Card Link Layer */}
       <Link
@@ -100,7 +101,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
       {/* Interactive Content Layer */}
       <div className="relative z-10 pointer-events-none flex flex-col h-full">
-        <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden pointer-events-auto">
+        <div className="relative h-48 sm:h-44 md:h-40 lg:aspect-video lg:h-auto bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden pointer-events-auto flex-shrink-0">
           <Link
             to={sharePath}
             target="_blank"
