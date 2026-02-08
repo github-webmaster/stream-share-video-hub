@@ -55,9 +55,11 @@ if (!JWT_SECRET) {
 
 fs.mkdirSync(STORAGE_BASE, { recursive: true });
 
+// Database SSL: disabled for Docker internal networks, enabled only if DATABASE_SSL=true
+const useSSL = process.env.DATABASE_SSL === "true";
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  ssl: useSSL ? { rejectUnauthorized: false } : false,
 });
 
 // Ensure admin user exists on startup
