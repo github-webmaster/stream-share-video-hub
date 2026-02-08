@@ -26,6 +26,7 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy application code
 COPY server/package*.json ./
 COPY server/src ./src
+COPY migrations ./migrations
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
