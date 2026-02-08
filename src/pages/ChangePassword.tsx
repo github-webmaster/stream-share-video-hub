@@ -36,7 +36,6 @@ export default function ChangePassword() {
             toast.success("Password updated successfully");
             navigate("/");
         } catch (err) {
-            console.error("Password change error:", err);
             toast.error("An unexpected error occurred");
         } finally {
             setLoading(false);
