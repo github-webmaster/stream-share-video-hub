@@ -1,5 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
-const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || `${API_URL}/media`;
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8081";
+const MEDIA_URL = import.meta.env.VITE_MEDIA_URL ?? `${API_URL}/media`;
 const TOKEN_KEY = "streamshare_token";
 
 export interface ApiUser {

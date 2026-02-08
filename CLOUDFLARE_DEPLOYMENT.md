@@ -63,10 +63,10 @@ POSTGRES_PASSWORD=YOUR_SECURE_DB_PASSWORD_HERE
 JWT_SECRET=YOUR_SECURE_JWT_SECRET_64_CHARS_HERE
 MINIO_ROOT_PASSWORD=YOUR_SECURE_MINIO_PASSWORD_HERE
 
-# URLs MUST use HTTPS (Cloudflare handles SSL)
+# URLs - Leave VITE_API_URL empty to use relative paths (proxied by Nginx)
 CORS_ORIGIN=https://yourdomain.com
-VITE_API_URL=https://yourdomain.com/api
-VITE_MEDIA_URL=https://yourdomain.com/media
+VITE_API_URL=
+VITE_MEDIA_URL=/media
 ```
 
 **Save:** `Ctrl+X`, `Y`, `Enter`
