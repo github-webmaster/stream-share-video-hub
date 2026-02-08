@@ -39,12 +39,17 @@ class BackupService {
 
     async refreshSchedule() {
         try {
-            // Get config from DB
-            const result = await this.pool.query(
-                "SELECT backup_enabled, backup_schedule, backup_retention_days FROM public.storage_config LIMIT 1"
-            );
-
-            const config = result.rows[0];
+            // Get config from DB - handle case where columns don't exist
+            let config = null;
+            try {
+                const result = await this.pool.query(
+                    "SELECT backup_enabled, backup_schedule, backup_retention_days FROM public.storage_config LIMIT 1"
+                );
+                config = result.rows[0];
+            } catch (queryErr) {
+                console.warn('[Backup] Config columns may not exist yet:', queryErr.message);
+                config = null;
+            }
 
             // Stop existing task
             if (this.cronTask) {

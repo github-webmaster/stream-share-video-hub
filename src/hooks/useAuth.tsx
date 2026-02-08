@@ -1,66 +1,59 @@
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import { authApi, ApiUser } from "../lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useAuth() {
-  const [user, setUser] = useState<ApiUser | null>(null);
-  const [roles, setRoles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [signingOut, setSigningOut] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      try {
+        const result = await authApi.me();
+        return { user: result.user, roles: result.roles };
+      } catch {
+        return { user: null, roles: [] };
+      }
+    },
+    staleTime: 120000, // 2 minutes - auth state is fresh for 2 min
+    gcTime: 600000, // 10 minutes
+    retry: false, // Don't retry auth failures
+  });
 
-    authApi
-      .me()
-      .then(({ user: currentUser, roles: currentRoles }) => {
-        if (!isMounted) return;
-        setUser(currentUser);
-        setRoles(currentRoles);
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        setUser(null);
-        setRoles([]);
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        setLoading(false);
-      });
+  const user = data?.user ?? null;
+  const roles = data?.roles ?? [];
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
       const result = await authApi.signIn(email, password);
-      setUser(result.user);
-      setRoles(result.roles);
+      // Update the cache immediately
+      queryClient.setQueryData(["auth", "me"], { user: result.user, roles: result.roles });
       window.location.href = '/';
       return { error: null as Error | null };
     } catch (error) {
       return { error: error as Error };
     }
-  };
+  }, [queryClient]);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     try {
       const result = await authApi.signUp(email, password);
-      setUser(result.user);
-      setRoles(result.roles);
+      queryClient.setQueryData(["auth", "me"], { user: result.user, roles: result.roles });
       window.location.href = '/';
       return { error: null as Error | null };
     } catch (error) {
       return { error: error as Error };
     }
-  };
+  }, [queryClient]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    setSigningOut(true);
     await authApi.signOut();
-    setUser(null);
-    setRoles([]);
+    queryClient.setQueryData(["auth", "me"], { user: null, roles: [] });
+    queryClient.clear(); // Clear all cached data on logout
     window.location.href = '/';
-  };
+  }, [queryClient]);
 
-  return { user, roles, loading, signIn, signUp, signOut };
+  return { user, roles, loading: loading || signingOut, signIn, signUp, signOut };
 }

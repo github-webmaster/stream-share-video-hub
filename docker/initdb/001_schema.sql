@@ -40,9 +40,23 @@ CREATE TABLE IF NOT EXISTS public.storage_config (
   storj_bucket TEXT,
   max_file_size_mb INTEGER NOT NULL DEFAULT 500,
   allowed_types TEXT[] NOT NULL DEFAULT ARRAY['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'],
+  default_storage_limit_mb INTEGER DEFAULT 512,
+  backup_enabled BOOLEAN DEFAULT false,
+  backup_schedule TEXT DEFAULT '0 2 * * *',
+  backup_retention_days INTEGER DEFAULT 30,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+
+-- Ensure backup columns exist (for existing databases)
+ALTER TABLE public.storage_config 
+ADD COLUMN IF NOT EXISTS backup_enabled BOOLEAN DEFAULT false;
+ALTER TABLE public.storage_config 
+ADD COLUMN IF NOT EXISTS backup_schedule TEXT DEFAULT '0 2 * * *';
+ALTER TABLE public.storage_config 
+ADD COLUMN IF NOT EXISTS backup_retention_days INTEGER DEFAULT 30;
+ALTER TABLE public.storage_config 
+ADD COLUMN IF NOT EXISTS default_storage_limit_mb INTEGER DEFAULT 512;
 
 CREATE TABLE IF NOT EXISTS public.user_quotas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

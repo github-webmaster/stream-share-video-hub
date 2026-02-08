@@ -611,21 +611,13 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
   }
 
   try {
-    console.log(`[login] Attempting login for: ${email}`);
-    
     const { rows } = await pool.query(
       "SELECT id, email, password_hash, created_at FROM public.users WHERE email = $1",
       [email]
     );
     const user = rows[0];
     
-    if (!user) {
-      console.log(`[login] User not found: ${email}`);
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-    
-    if (!user.password_hash) {
-      console.log(`[login] User has no password hash: ${email}`);
+    if (!user || !user.password_hash) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
@@ -633,28 +625,20 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
     try {
       match = await bcrypt.compare(password, user.password_hash);
     } catch (bcryptError) {
-      console.error(`[login] Bcrypt compare error for ${email}:`, bcryptError.message);
-      // If bcrypt fails (invalid hash format), try to rehash and update
-      console.log(`[login] Attempting to fix password hash for: ${email}`);
-      const newHash = await bcrypt.hash(password, 10);
-      // Only update if this is a hash format issue, not a wrong password
-      // We can't verify the old password, so just fail
+      console.error(`[login] Bcrypt error for ${email}:`, bcryptError.message);
       return res.status(401).json({ error: "Invalid credentials" });
     }
     
     if (!match) {
-      console.log(`[login] Password mismatch for: ${email}`);
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    console.log(`[login] Login successful for: ${email}`);
     const roles = await getUserRoles(user.id);
     const token = signToken(user);
     return res.json({ token, user: { id: user.id, email: user.email, created_at: user.created_at }, roles });
   } catch (error) {
-    console.error("[login] Error logging in user:", error.message || error);
-    console.error("[login] Stack:", error.stack);
-    return res.status(500).json({ error: "Failed to login", details: process.env.NODE_ENV !== 'production' ? error.message : undefined });
+    console.error("[login] Error:", error.message || error);
+    return res.status(500).json({ error: "Failed to login" });
   }
 });
 
@@ -780,11 +764,31 @@ app.post("/api/admin/toggle-debug", authRequired, requireAdmin, async (req, res)
 app.get("/api/admin/backups", authRequired, requireAdmin, async (_req, res) => {
   try {
     const defaultSchedule = '0 2 * * *';
-    const result = await pool.query(
-      "SELECT backup_enabled, backup_schedule, backup_retention_days FROM public.storage_config LIMIT 1"
-    );
-    const config = result.rows[0] || { backup_enabled: false, backup_schedule: defaultSchedule, backup_retention_days: 30 };
-    const files = await backupService.listBackups();
+    const defaultConfig = { backup_enabled: false, backup_schedule: defaultSchedule, backup_retention_days: 30 };
+    
+    let config = defaultConfig;
+    try {
+      const result = await pool.query(
+        "SELECT backup_enabled, backup_schedule, backup_retention_days FROM public.storage_config LIMIT 1"
+      );
+      if (result.rows[0]) {
+        config = {
+          backup_enabled: result.rows[0].backup_enabled ?? false,
+          backup_schedule: result.rows[0].backup_schedule ?? defaultSchedule,
+          backup_retention_days: result.rows[0].backup_retention_days ?? 30
+        };
+      }
+    } catch (queryErr) {
+      // Columns may not exist yet, use defaults
+      console.warn("[backup] Config columns may not exist, using defaults:", queryErr.message);
+    }
+    
+    let files = [];
+    try {
+      files = await backupService.listBackups();
+    } catch (listErr) {
+      console.warn("[backup] Failed to list backups:", listErr.message);
+    }
 
     return res.json({ config, files });
   } catch (error) {

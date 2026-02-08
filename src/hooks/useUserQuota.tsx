@@ -20,13 +20,11 @@ export function useUserQuota() {
     queryKey: ["user-quota", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      console.log("[useUserQuota] Fetching quota via React Query...");
       const data = await quotaApi.getQuota();
-      console.log("[useUserQuota] Quota received:", data);
       return data as UserQuota;
     },
     enabled: !!user?.id,
-    staleTime: 30000, // 30 seconds
+    staleTime: 60000, // 1 minute
   });
 
   const formatBytes = (bytes: number): string => {

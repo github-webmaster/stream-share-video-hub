@@ -13,7 +13,17 @@ import { AdminRoute } from "./components/AdminRoute";
 import { UploadProvider } from "./contexts/UploadContext";
 import { GlobalUploadManager } from "./components/GlobalUploadManager";
 
-const queryClient = new QueryClient();
+// Optimized QueryClient with better caching defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60000, // 1 minute - data is fresh for 1 min
+      gcTime: 300000, // 5 minutes - cache kept for 5 min
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      retry: 1, // Only retry once on failure
+    },
+  },
+});
 
 const App = () => (
     <QueryClientProvider client={queryClient}>
