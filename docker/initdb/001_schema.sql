@@ -227,7 +227,7 @@ SELECT 'local'
 WHERE NOT EXISTS (SELECT 1 FROM public.storage_config);
 
 -- Create default admin user if no users exist
--- Password: admin@maggew.com (bcrypt hash)
+-- Password: StreamShare2026!
 DO $$
 DECLARE
   admin_id UUID;
@@ -235,10 +235,10 @@ DECLARE
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.users) THEN
     admin_id := gen_random_uuid();
-    admin_hash := crypt('admin@maggew.com', gen_salt('bf', 10));
+    admin_hash := crypt('StreamShare2026!', gen_salt('bf', 10));
     
     INSERT INTO public.users (id, email, password_hash)
-    VALUES (admin_id, 'admin@maggew.com', admin_hash);
+    VALUES (admin_id, 'admin@streamshare.app', admin_hash);
     
     INSERT INTO public.profiles (id, default_visibility)
     VALUES (admin_id, 'public');
@@ -249,6 +249,6 @@ BEGIN
     INSERT INTO public.user_quotas (user_id, storage_limit_bytes)
     VALUES (admin_id, 10737418240);
     
-    RAISE NOTICE 'Created default admin user: admin@maggew.com';
+    RAISE NOTICE 'Created default admin user: admin@streamshare.app';
   END IF;
 END $$;

@@ -41,7 +41,7 @@ export function LoginForm() {
           <div className="space-y-4">
             <Input
               type="email"
-              placeholder="Adam@Von.Enterprises"
+              placeholder="bruce@wayne.dev"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

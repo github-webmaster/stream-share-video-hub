@@ -64,8 +64,8 @@ const pool = new Pool({
 
 // Ensure admin user exists on startup
 const ensureAdminUser = async () => {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@maggew.com";
-  const adminPassword = process.env.ADMIN_PASSWORD || "admin@maggew.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@streamshare.app";
+  const adminPassword = process.env.ADMIN_PASSWORD || "StreamShare2026!";
   
   try {
     // Check if any users exist
@@ -529,7 +529,7 @@ app.get("/api/auth/debug", async (req, res) => {
   }
   
   try {
-    const adminEmail = process.env.ADMIN_EMAIL || "admin@maggew.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@streamshare.app";
     const { rows: userCheck } = await pool.query(
       "SELECT id, email, password_hash IS NOT NULL as has_password FROM public.users WHERE email = $1",
       [adminEmail]

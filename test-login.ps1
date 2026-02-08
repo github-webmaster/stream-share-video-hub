@@ -1,6 +1,6 @@
 $body = @{
-    email = "admin@maggew.com"
-    password = "admin@maggew.com"
+    email = "admin@streamshare.app"
+    password = "StreamShare2026!"
 } | ConvertTo-Json
 
 try {
