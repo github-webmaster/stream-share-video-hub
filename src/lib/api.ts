@@ -49,6 +49,18 @@ export interface UploadSessionData {
   created_at: string;
 }
 
+export interface BackupConfig {
+  backup_enabled: boolean;
+  backup_schedule: string;
+  backup_retention_days: number;
+}
+
+export interface BackupFile {
+  name: string;
+  size: number;
+  date: string;
+}
+
 export interface AuthResponse {
   user: ApiUser;
   roles: string[];
@@ -370,7 +382,7 @@ export const adminApi = {
     const data = await apiFetch("/api/admin/cache/clear", { method: "POST" }, true);
     return data;
   },
-  async getBackupConfig(): Promise<{ config: any; files: any[] }> {
+  async getBackupConfig(): Promise<{ config: BackupConfig; files: BackupFile[] }> {
     return apiFetch("/api/admin/backups", { method: "GET" }, true);
   },
   async updateBackupConfig(config: { enabled: boolean; schedule: string; retentionDays: number }): Promise<void> {

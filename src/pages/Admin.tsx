@@ -24,7 +24,7 @@ import {
   Database
 } from "lucide-react";
 import { toast } from "sonner";
-import { adminApi, User } from "@/lib/api";
+import { adminApi, User, BackupFile } from "@/lib/api";
 import { formatDistance } from "date-fns";
 import {
   Table,
@@ -80,7 +80,7 @@ export default function Admin() {
 
   // Backup State
   const [backupConfig, setBackupConfig] = useState({ enabled: false, schedule: "0 2 * * *", retentionDays: 30 });
-  const [backups, setBackups] = useState<any[]>([]);
+  const [backups, setBackups] = useState<BackupFile[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [runningBackup, setRunningBackup] = useState(false);
 
