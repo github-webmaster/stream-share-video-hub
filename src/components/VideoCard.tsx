@@ -88,7 +88,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-[10px] bg-[#1d1d1f]/80 border border-white/5 flex flex-col shadow-[0_10px_30px_rgba(0,0,0,0.2)] will-change-[opacity] ${show ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
+      className={`group relative overflow-visible rounded-[10px] bg-[#1d1d1f]/80 border border-white/5 flex flex-col shadow-[0_10px_30px_rgba(0,0,0,0.2)] will-change-[opacity] min-h-[180px] sm:min-h-[240px] ${show ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
     >
       {/* Whole Card Link Layer */}
       <Link
@@ -100,7 +100,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
 
       {/* Interactive Content Layer */}
       <div className="relative z-10 pointer-events-none flex flex-col h-full">
-        <div className="relative h-24 sm:h-36 md:h-40 lg:h-44 bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden pointer-events-auto flex-shrink-0">
+        <div className="relative h-28 sm:h-36 md:h-40 lg:h-44 bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden pointer-events-auto flex-shrink-0">
           <Link
             to={sharePath}
             target="_blank"
@@ -133,10 +133,10 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
           </Link>
         </div>
 
-        <div className="p-2 sm:p-3 space-y-1.5 sm:space-y-3 flex flex-col flex-1">
+        <div className="p-2 sm:p-3 flex flex-col gap-2">
           {/* Title and File Size Row */}
           <div
-            className="flex items-center justify-center w-full min-h-[1.75rem] sm:min-h-[2.5rem] pointer-events-auto cursor-pointer hover:bg-white/5 rounded-md px-2 will-change-[background-color]"
+            className="flex items-center justify-center w-full min-h-[1.5rem] sm:min-h-[2rem] pointer-events-auto cursor-pointer hover:bg-white/5 rounded-md px-1 will-change-[background-color]"
             onClick={editing ? undefined : startEdit}
           >
             {editing ? (
@@ -172,7 +172,7 @@ export const VideoCard = memo(({ video, videoUrl, onDelete, onUpdateTitle, onLoa
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-1 sm:gap-1.5 mt-auto pointer-events-auto">
+          <div className="grid grid-cols-3 gap-1 sm:gap-1.5 pointer-events-auto">
             <Button
               variant="ghost"
               size="sm"
