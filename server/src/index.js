@@ -103,7 +103,7 @@ let errorCount = 0;
 app.use((req, res, next) => {
   requestCount++;
   const originalSend = res.send;
-  res.send = function(data) {
+  res.send = function (data) {
     if (res.statusCode >= 400) errorCount++;
     originalSend.call(this, data);
   };
@@ -141,7 +141,7 @@ const handleMulterError = (err, req, res, next) => {
   debugLog(`[multer] Error occurred:`, err.message);
   debugLog(`[multer] Error code:`, err.code);
   debugLog(`[multer] Request headers:`, Object.fromEntries(Object.entries(req.headers).filter(([key]) => !key.toLowerCase().includes('authorization'))));
-  
+
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ error: `File too large. Maximum size: ${MAX_FILE_SIZE_MB}MB` });
@@ -151,11 +151,11 @@ const handleMulterError = (err, req, res, next) => {
     }
     return res.status(400).json({ error: `Upload error: ${err.message}` });
   }
-  
+
   if (err.message === 'File type not allowed') {
     return res.status(400).json({ error: `File type not allowed. Allowed types: ${ALLOWED_TYPES.join(", ")}` });
   }
-  
+
   console.error(`[multer] Unexpected error:`, err);
   return res.status(500).json({ error: "File upload failed" });
 };
@@ -264,7 +264,7 @@ const cleanupOldVideos = async (userId) => {
       console.warn(`[cleanupOldVideos] Failed to determine roles for user ${userId}:`, roleErr.message);
       // If role check fails, proceed with caution and continue cleanup for safety
     }
-    
+
     // Non-admin users: 90 day retention
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { rows } = await pool.query(
@@ -314,16 +314,16 @@ const reconcileUserQuota = async (userId) => {
       "SELECT COALESCE(SUM(size), 0) as total_size FROM public.videos WHERE user_id = $1",
       [userId]
     );
-    
+
     const actualSize = videoRows[0]?.total_size || 0;
-    
+
     const { rows: quotaRows } = await pool.query(
       "SELECT storage_used_bytes FROM public.user_quotas WHERE user_id = $1",
       [userId]
     );
-    
+
     const recordedSize = quotaRows[0]?.storage_used_bytes || 0;
-    
+
     if (actualSize !== recordedSize) {
       console.log(`[reconcile] User ${userId}: recorded=${recordedSize}, actual=${actualSize}, delta=${actualSize - recordedSize}`);
       await pool.query(
@@ -346,7 +346,7 @@ const authRequired = (req, res, next) => {
   const authHeader = req.headers.authorization || "";
   debugLog(`[auth] Auth header present:`, !!authHeader);
   debugLog(`[auth] Auth header format valid:`, authHeader.startsWith("Bearer "));
-  
+
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   if (!token) {
     debugLog(`[auth] No valid token found`);
@@ -436,9 +436,12 @@ app.post("/api/auth/signup", async (req, res) => {
       "INSERT INTO public.user_roles (user_id, role) VALUES ($1, $2) ON CONFLICT (user_id, role) DO NOTHING",
       [user.id, role]
     );
-    
-    // Set storage limit: 10GB for admins, 512MB for regular users
-    const storageLimit = role === "admin" ? 10737418240 : 536870912; // 10GB : 512MB
+
+    // Set storage limit
+    const config = await getStorageConfig();
+    const defaultLimit = (config?.default_storage_limit_mb || 512) * 1024 * 1024;
+    const storageLimit = role === "admin" ? 10737418240 : defaultLimit;
+
     await pool.query(
       "INSERT INTO public.user_quotas (user_id, storage_limit_bytes) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING",
       [user.id, storageLimit]
@@ -582,16 +585,16 @@ app.post("/api/admin/toggle-debug", authRequired, requireAdmin, async (req, res)
     if (typeof enabled !== 'boolean') {
       return res.status(400).json({ error: "Enabled must be a boolean" });
     }
-    
+
     runtimeDebugEnabled = enabled;
-    
+
     // Update the global debugLog function  
     global.debugLog = (message, ...args) => {
       if (runtimeDebugEnabled) {
         console.log(message, ...args);
       }
     };
-    
+
     console.log(`[admin] Debug logging ${enabled ? 'enabled' : 'disabled'} by admin`);
     return res.json({ debugEnabled: runtimeDebugEnabled });
   } catch (error) {
@@ -605,6 +608,92 @@ app.get("/api/admin/reconcile-storage", authRequired, requireAdmin, async (_req,
     return res.json({ success: true, message: "Storage quotas reconciled" });
   } catch (error) {
     return res.status(500).json({ error: "Failed to reconcile storage" });
+  }
+});
+
+app.get("/api/admin/users", authRequired, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        u.id, 
+        u.email, 
+        u.created_at,
+        COALESCE(q.storage_used_bytes, 0) as storage_used,
+        COALESCE(q.storage_limit_bytes, 0) as storage_limit,
+        COALESCE(q.upload_count, 0) as upload_count,
+        array_remove(array_agg(r.role), NULL) as roles
+      FROM public.users u
+      LEFT JOIN public.user_quotas q ON u.id = q.user_id
+      LEFT JOIN public.user_roles r ON u.id = r.user_id
+      GROUP BY u.id, u.email, u.created_at, q.storage_used_bytes, q.storage_limit_bytes, q.upload_count
+      ORDER BY u.created_at DESC
+    `);
+    return res.json({ users: rows });
+  } catch (error) {
+    console.error("[admin] Failed to list users:", error);
+    return res.status(500).json({ error: "Failed to list users" });
+  }
+});
+
+app.patch("/api/admin/users/:id/password", authRequired, requireAdmin, async (req, res) => {
+  const { password } = req.body;
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    await pool.query("UPDATE public.users SET password_hash = $1 WHERE id = $2", [passwordHash, req.params.id]);
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to update password" });
+  }
+});
+
+app.delete("/api/admin/users/:id", authRequired, requireAdmin, async (req, res) => {
+  const userId = req.params.id;
+  if (userId === req.user.id) {
+    return res.status(400).json({ error: "Cannot delete your own account" });
+  }
+
+  try {
+    // 1. Get all videos to delete files
+    const { rows: videos } = await pool.query("SELECT id, storage_path FROM public.videos WHERE user_id = $1", [userId]);
+    const config = await getStorageConfig();
+
+    for (const video of videos) {
+      try {
+        if (video.storage_path.startsWith("storj://")) {
+          if (config?.provider === "storj" && config.storj_access_key && config.storj_secret_key) {
+            const match = video.storage_path.match(/^storj:\/\/[^\/]+\/(.+)$/);
+            if (match) await deleteFromStorj(config, match[1]);
+          }
+        } else if (video.storage_path.startsWith("https://link.storjshare.io/")) {
+          if (config?.provider === "storj" && config.storj_bucket) {
+            const key = getStorjKeyFromUrl(video.storage_path, config.storj_bucket);
+            if (key) await deleteFromStorj(config, key);
+          }
+        } else if (!video.storage_path.startsWith("http")) {
+          const filePath = safeJoin(STORAGE_BASE, video.storage_path);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error(`[admin] Failed to delete file for video ${video.id}:`, err);
+      }
+    }
+
+    // 2. Delete DB records
+    await pool.query("DELETE FROM public.videos WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM public.upload_sessions WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM public.user_quotas WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM public.user_roles WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM public.profiles WHERE id = $1", [userId]);
+    await pool.query("DELETE FROM public.users WHERE id = $1", [userId]);
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[admin] Failed to delete user:", error);
+    return res.status(500).json({ error: "Failed to delete user" });
   }
 });
 
@@ -626,7 +715,7 @@ app.put("/api/storage-config", authRequired, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "Storage config not found" });
     }
 
-    const fields = ["provider", "storj_access_key", "storj_secret_key", "storj_endpoint", "storj_bucket", "max_file_size_mb", "allowed_types"];
+    const fields = ["provider", "storj_access_key", "storj_secret_key", "storj_endpoint", "storj_bucket", "max_file_size_mb", "allowed_types", "default_storage_limit_mb"];
     const setParts = [];
     const values = [];
 
@@ -649,25 +738,46 @@ app.put("/api/storage-config", authRequired, requireAdmin, async (req, res) => {
   }
 });
 
+app.patch("/api/admin/users/:id/quota", authRequired, requireAdmin, async (req, res) => {
+  const { storageLimitBytes } = req.body;
+  if (typeof storageLimitBytes !== 'number' || storageLimitBytes < 0) {
+    return res.status(400).json({ error: "Invalid storage limit" });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      "INSERT INTO public.user_quotas (user_id, storage_limit_bytes, storage_used_bytes, upload_count) VALUES ($1, $2, 0, 0) ON CONFLICT (user_id) DO UPDATE SET storage_limit_bytes = $2 RETURNING storage_limit_bytes",
+      [req.params.id, storageLimitBytes]
+    );
+    return res.json({ success: true, storage_limit_bytes: rows[0].storage_limit_bytes });
+  } catch (error) {
+    console.error("[admin] Failed to update user quota:", error);
+    return res.status(500).json({ error: "Failed to update user quota" });
+  }
+});
+
 app.get("/api/user-quota", authRequired, async (req, res) => {
   try {
     debugLog(`[quota] Fetching quota for user ${req.user.id}`);
-    
+
     // Get user roles to ensure proper quota limits
     const roles = await getUserRoles(req.user.id);
     const isAdmin = roles && roles.includes("admin");
-    const expectedLimit = isAdmin ? 10737418240 : 536870912; // 10GB for admin, 512MB for regular
-    
+
+    const config = await getStorageConfig();
+    const defaultLimit = (config?.default_storage_limit_mb || 512) * 1024 * 1024;
+    const expectedLimit = isAdmin ? 10737418240 : defaultLimit;
+
     // ALWAYS reconcile quota on fetch to ensure accuracy
     await reconcileUserQuota(req.user.id);
-    
+
     const { rows } = await pool.query(
       "SELECT storage_used_bytes, storage_limit_bytes, upload_count FROM public.user_quotas WHERE user_id = $1",
       [req.user.id]
     );
-    
+
     let quota = rows[0];
-    
+
     // Create quota if doesn't exist
     if (!quota) {
       debugLog(`[quota] Creating new quota record for user ${req.user.id}`);
@@ -676,24 +786,25 @@ app.get("/api/user-quota", authRequired, async (req, res) => {
         [req.user.id, expectedLimit]
       );
       quota = { storage_used_bytes: 0, storage_limit_bytes: expectedLimit, upload_count: 0 };
-    } 
-    // Update quota limit if user role changed
-    else if (quota.storage_limit_bytes !== expectedLimit) {
-      debugLog(`[quota] Updating quota limit for user ${req.user.id}: ${quota.storage_limit_bytes} -> ${expectedLimit}`);
+    }
+    // Update quota limit ONLY if it was using the OLD default (512MB) and the new default is different, 
+    // OR if we want to enforce defaults (careful not to overwrite manual overrides).
+    // For now, let's ONLY set it on creation or if it's 0/null. Manual overrides via admin panel should persist.
+    else if (!quota.storage_limit_bytes) {
       await pool.query(
         "UPDATE public.user_quotas SET storage_limit_bytes = $1 WHERE user_id = $2",
         [expectedLimit, req.user.id]
       );
       quota.storage_limit_bytes = expectedLimit;
     }
-    
+
     // Ensure numeric values
     quota.storage_used_bytes = parseInt(quota.storage_used_bytes) || 0;
     quota.storage_limit_bytes = parseInt(quota.storage_limit_bytes) || expectedLimit;
     quota.upload_count = parseInt(quota.upload_count) || 0;
-    
+
     debugLog(`[quota] Returning quota: used=${quota.storage_used_bytes}, limit=${quota.storage_limit_bytes}, uploads=${quota.upload_count}`);
-    
+
     return res.json({ quota });
   } catch (error) {
     console.error('[quota] Failed to fetch quota:', error);
@@ -755,7 +866,7 @@ app.get("/api/video-media/:videoId", authRequired, async (req, res) => {
       "SELECT storage_path FROM public.videos WHERE id = $1 AND user_id = $2",
       [req.params.videoId, req.user.id]
     );
-    
+
     const video = rows[0];
     if (!video) {
       return res.status(404).json({ error: "Video not found" });
@@ -877,7 +988,7 @@ app.delete("/api/videos/:id", authRequired, async (req, res) => {
 // Start a chunked upload session
 app.post("/api/upload/start", authRequired, async (req, res) => {
   const { filename, fileSize, mimetype, totalChunks } = req.body;
-  
+
   if (!filename || !fileSize || !mimetype || !totalChunks) {
     return res.status(400).json({ error: "Missing required fields: filename, fileSize, mimetype, totalChunks" });
   }
@@ -902,7 +1013,10 @@ app.post("/api/upload/start", authRequired, async (req, res) => {
     // Get user roles and determine quota
     const roles = await getUserRoles(req.user.id);
     const isAdmin = roles && roles.includes("admin");
-    const MIN_QUOTA = isAdmin ? 10737418240 : 536870912;
+
+    const config = await getStorageConfig();
+    const defaultLimit = (config?.default_storage_limit_mb || 512) * 1024 * 1024;
+    const MIN_QUOTA = isAdmin ? 10737418240 : defaultLimit;
 
     const client = await pool.connect();
     try {
@@ -928,6 +1042,9 @@ app.post("/api/upload/start", authRequired, async (req, res) => {
 
       let quota = qRows[0];
       if (!quota.storage_limit_bytes || quota.storage_limit_bytes < MIN_QUOTA) {
+        // Only auto-upgrade if below MIN_QUOTA (e.g. role change or default increase), 
+        // but respect if it was manually set higher? 
+        // Actually, for simplicity, if it's less than the *current* default/role-based minimum, bump it up.
         await client.query(
           "UPDATE public.user_quotas SET storage_limit_bytes = $1 WHERE user_id = $2",
           [MIN_QUOTA, req.user.id]
@@ -945,7 +1062,7 @@ app.post("/api/upload/start", authRequired, async (req, res) => {
       if (!isAdmin && (currentUsed + fileSizeInt) > storageLimit) {
         await client.query("ROLLBACK");
         debugLog(`[chunked-upload] Quota exceeded for user ${req.user.id}`);
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Storage quota exceeded",
           details: DEBUG_ENABLED ? { currentUsed, fileSize: fileSizeInt, storageLimit } : undefined
         });
@@ -992,27 +1109,27 @@ app.post("/api/upload/start", authRequired, async (req, res) => {
 // Get presigned URL for direct chunk upload
 app.post("/api/upload/chunk-url/:sessionId/:chunkNumber", authRequired, async (req, res) => {
   const { sessionId, chunkNumber } = req.params;
-  
+
   try {
     const { rows } = await pool.query(
       "SELECT user_id, total_chunks, mimetype FROM public.upload_sessions WHERE id = $1",
       [sessionId]
     );
-    
+
     if (!rows[0] || rows[0].user_id !== req.user.id) {
       return res.status(404).json({ error: "Session not found" });
     }
-    
+
     const chunkNum = parseInt(chunkNumber);
     if (chunkNum < 0 || chunkNum >= rows[0].total_chunks) {
       return res.status(400).json({ error: "Invalid chunk number" });
     }
-    
+
     const config = await getStorageConfig();
     if (config?.provider !== "storj" || !config.storj_access_key) {
       return res.status(400).json({ error: "Direct upload not configured" });
     }
-    
+
     const client = new S3Client({
       region: "us-east-1",
       endpoint: config.storj_endpoint,
@@ -1021,11 +1138,11 @@ app.post("/api/upload/chunk-url/:sessionId/:chunkNumber", authRequired, async (r
         secretAccessKey: config.storj_secret_key,
       },
     });
-    
+
     const key = `chunks/${req.user.id}/${sessionId}/${chunkNumber}`;
     const command = new PutObjectCommand({ Bucket: config.storj_bucket, Key: key });
     const url = await getSignedUrl(client, command, { expiresIn: 3600 });
-    
+
     return res.json({ url, key });
   } catch (error) {
     console.error("[presigned] Error:", error);
@@ -1055,27 +1172,27 @@ const chunkUpload = multer({
 app.post("/api/upload/chunk-complete/:sessionId/:chunkNumber", authRequired, async (req, res) => {
   const { sessionId, chunkNumber } = req.params;
   const { key, size } = req.body;
-  
+
   try {
     const { rows } = await pool.query(
       "SELECT user_id, status, total_chunks FROM public.upload_sessions WHERE id = $1",
       [sessionId]
     );
-    
+
     if (!rows[0] || rows[0].user_id !== req.user.id) {
       return res.status(404).json({ error: "Session not found" });
     }
-    
+
     if (rows[0].status !== 'pending' && rows[0].status !== 'uploading') {
       return res.status(400).json({ error: "Invalid session status" });
     }
-    
+
     const chunkNum = parseInt(chunkNumber);
     const { rows: existing } = await pool.query(
       "SELECT id FROM public.upload_chunks WHERE session_id = $1 AND chunk_number = $2",
       [sessionId, chunkNum]
     );
-    
+
     if (existing.length > 0) {
       const { rows: updated } = await pool.query(
         "SELECT COUNT(*)::int as count FROM public.upload_chunks WHERE session_id = $1",
@@ -1083,17 +1200,17 @@ app.post("/api/upload/chunk-complete/:sessionId/:chunkNumber", authRequired, asy
       );
       return res.json({ success: true, chunksUploaded: updated[0].count });
     }
-    
+
     await pool.query(
       "INSERT INTO public.upload_chunks (session_id, chunk_number, chunk_size, storage_path) VALUES ($1, $2, $3, $4)",
       [sessionId, chunkNum, size, key]
     );
-    
+
     const { rows: updated } = await pool.query(
       "UPDATE public.upload_sessions SET chunks_uploaded = chunks_uploaded + 1, status = 'uploading' WHERE id = $1 RETURNING chunks_uploaded",
       [sessionId]
     );
-    
+
     return res.json({ success: true, chunksUploaded: updated[0].chunks_uploaded });
   } catch (error) {
     console.error("[chunk-complete] Error:", error);
@@ -1157,14 +1274,14 @@ app.post("/api/upload/chunk/:sessionId", authRequired, (req, res, next) => {
       // Chunk already uploaded, return success
       debugLog(`[chunked-upload] Chunk ${chunkNumber} already exists for session ${sessionId}`);
       if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-      
+
       const { rows: updatedChunks } = await pool.query(
         "SELECT COUNT(*)::int as count FROM public.upload_chunks WHERE session_id = $1",
         [sessionId]
       );
-      
-      return res.json({ 
-        success: true, 
+
+      return res.json({
+        success: true,
         chunkNumber: chunkNum,
         chunksUploaded: updatedChunks[0].count
       });
@@ -1235,7 +1352,7 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
 
     // Verify all chunks uploaded
     if (session.chunks_uploaded !== session.total_chunks) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Not all chunks uploaded",
         chunksUploaded: session.chunks_uploaded,
         totalChunks: session.total_chunks
@@ -1263,11 +1380,11 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
     const config = await getStorageConfig();
     const storjEnabled = config?.provider === "storj" && config.storj_access_key && config.storj_secret_key && config.storj_bucket;
     const ext = path.extname(session.filename || "");
-    
+
     // Check if chunks were uploaded directly to Storj
     const isDirectUpload = chunks[0]?.storage_path?.startsWith("chunks/");
     let storagePath;
-    
+
     if (isDirectUpload && storjEnabled) {
       // Chunks are already in Storj - assemble them using multipart upload
       debugLog(`[chunked-upload] Direct upload detected - assembling in Storj`);
@@ -1277,13 +1394,13 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
         endpoint: config.storj_endpoint,
         credentials: { accessKeyId: config.storj_access_key, secretAccessKey: config.storj_secret_key },
       });
-      
+
       const multipart = await client.send(new CreateMultipartUploadCommand({
         Bucket: config.storj_bucket,
         Key: finalKey,
         ContentType: session.mimetype,
       }));
-      
+
       const parts = [];
       for (let i = 0; i < chunks.length; i++) {
         const partResp = await client.send(new UploadPartCopyCommand({
@@ -1295,16 +1412,16 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
         }));
         parts.push({ PartNumber: i + 1, ETag: partResp.CopyPartResult.ETag });
       }
-      
+
       await client.send(new CompleteMultipartUploadCommand({
         Bucket: config.storj_bucket,
         Key: finalKey,
         UploadId: multipart.UploadId,
         MultipartUpload: { Parts: parts },
       }));
-      
+
       storagePath = `storj://${config.storj_bucket}/${finalKey}`;
-      
+
       // Clean up chunk objects
       for (const chunk of chunks) {
         await client.send(new DeleteObjectCommand({
@@ -1388,7 +1505,7 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
     });
   } catch (error) {
     console.error(`[chunked-upload] Error completing upload:`, error);
-    
+
     // Mark session as failed
     try {
       await pool.query(
@@ -1398,7 +1515,7 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
     } catch (e) {
       console.error(`[chunked-upload] Failed to update session status:`, e);
     }
-    
+
     return res.status(500).json({ error: "Failed to complete upload" });
   }
 });
@@ -1501,7 +1618,7 @@ app.post("/api/upload", authRequired, (req, res, next) => {
   debugLog(`[upload] Content-Length:`, req.headers['content-length']);
   debugLog(`[upload] User-Agent:`, req.headers['user-agent']);
   debugLog(`[upload] User ID:`, req.user?.id);
-  
+
   upload.single("file")(req, res, (err) => {
     if (err) {
       return handleMulterError(err, req, res, next);
@@ -1517,7 +1634,7 @@ app.post("/api/upload", authRequired, (req, res, next) => {
   debugLog(`[upload] Body type:`, typeof req.body);
   debugLog(`[upload] Body length:`, req.body ? Object.keys(req.body).length : 'null');
   debugLog(`[upload] File present:`, !!req.file);
-  
+
   if (req.file) {
     debugLog(`[upload] File details:`, {
       fieldname: req.file.fieldname,
@@ -1530,7 +1647,7 @@ app.post("/api/upload", authRequired, (req, res, next) => {
       size: req.file.size
     });
   }
-  
+
   if (!req.file) {
     debugLog(`[upload] ERROR: No file in request`);
     debugLog(`[upload] Multer error check - req.multerError:`, req.multerError);
@@ -1565,10 +1682,11 @@ app.post("/api/upload", authRequired, (req, res, next) => {
       // Get user roles to determine quota limits
       const roles = await getUserRoles(req.user.id);
       const isAdmin = roles && roles.includes("admin");
-      
+      const defaultLimit = (config?.default_storage_limit_mb || 512) * 1024 * 1024;
+
       // Set quota limits based on user role
-      const MIN_QUOTA = isAdmin ? 10737418240 : 536870912; // 10GB for admin, 512MB for regular users
-      
+      const MIN_QUOTA = isAdmin ? 10737418240 : defaultLimit;
+
       // Ensure quota row exists and lock it
       const { rows: qRows } = await client.query(
         "SELECT storage_used_bytes, storage_limit_bytes FROM public.user_quotas WHERE user_id = $1 FOR UPDATE",
@@ -1615,7 +1733,7 @@ app.post("/api/upload", authRequired, (req, res, next) => {
           await client.query("ROLLBACK");
           debugLog(`[upload] QUOTA EXCEEDED - Used: ${currentUsed}, File: ${newFileSize}, Total: ${totalAfterUpload}, Limit: ${storageLimit}`);
           fs.unlinkSync(req.file.path);
-          return res.status(400).json({ 
+          return res.status(400).json({
             error: "Storage quota exceeded",
             details: DEBUG_ENABLED ? {
               currentUsed,
@@ -1643,7 +1761,7 @@ app.post("/api/upload", authRequired, (req, res, next) => {
     } catch (txErr) {
       try {
         await client.query("ROLLBACK");
-      } catch (e) {}
+      } catch (e) { }
       client.release();
       console.error(`[upload] Transaction error:`, txErr);
       if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);

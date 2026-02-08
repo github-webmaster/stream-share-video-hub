@@ -30,6 +30,7 @@ export interface StorageConfig {
   storj_bucket?: string;
   max_file_size_mb: number;
   allowed_types: string[];
+  default_storage_limit_mb?: number;
 }
 
 export interface UserQuota {
@@ -50,6 +51,16 @@ export interface UploadSessionData {
 
 export interface AuthResponse {
   user: ApiUser;
+  roles: string[];
+}
+
+export interface User {
+  id: string;
+  email: string;
+  created_at: string;
+  storage_used: number;
+  storage_limit: number;
+  upload_count: number;
   roles: string[];
 }
 
@@ -176,7 +187,7 @@ export const videoApi = {
       shareId: data.video?.share_id,
     };
   },
-  
+
   // Chunked upload API
   async startChunkedUpload(
     filename: string,
@@ -327,6 +338,33 @@ export const adminApi = {
       true
     );
     return data;
+  },
+  async getUsers(): Promise<User[]> {
+    const data = await apiFetch("/api/admin/users", { method: "GET" }, true);
+    return data.users || [];
+  },
+  async updateUserPassword(userId: string, password: string): Promise<void> {
+    await apiFetch(
+      `/api/admin/users/${userId}/password`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ password }),
+      },
+      true
+    );
+  },
+  async deleteUser(userId: string): Promise<void> {
+    await apiFetch(`/api/admin/users/${userId}`, { method: "DELETE" }, true);
+  },
+  async updateUserQuota(userId: string, storageLimitBytes: number): Promise<void> {
+    await apiFetch(
+      `/api/admin/users/${userId}/quota`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ storageLimitBytes }),
+      },
+      true
+    );
   },
 };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -9,8 +9,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Shield, Cloud, HardDrive, CheckCircle, XCircle, Eye, EyeOff } from "lucide-react";
+import {
+  Loader2,
+  Cloud,
+  HardDrive,
+  CheckCircle,
+  XCircle,
+  Eye,
+  EyeOff,
+  Users,
+  Trash2,
+  Key,
+  ChevronLeft,
+  Database
+} from "lucide-react";
 import { toast } from "sonner";
+import { adminApi, User } from "@/lib/api";
+import { formatDistance } from "date-fns";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+type Section = "storage" | "users";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -18,15 +51,32 @@ export default function Admin() {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { config, loading: configLoading, saving, updateConfig, testStorjConnection } = useStorageConfig();
 
+  const [activeSection, setActiveSection] = useState<Section>("storage");
+
+  // Storage State
   const [useStorj, setUseStorj] = useState(false);
   const [accessKey, setAccessKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
   const [bucket, setBucket] = useState("");
   const [endpoint, setEndpoint] = useState("https://gateway.storjshare.io");
   const [maxFileSize, setMaxFileSize] = useState(500);
+  const [defaultStorageLimit, setDefaultStorageLimit] = useState(512);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
+
+  // Users State
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Password Dialog
+  const [newPassword, setNewPassword] = useState("");
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+
+  // Quota Dialog
+  const [newQuota, setNewQuota] = useState("");
+  const [isQuotaDialogOpen, setIsQuotaDialogOpen] = useState(false);
 
   useEffect(() => {
     if (config) {
@@ -36,8 +86,41 @@ export default function Admin() {
       setBucket(config.storj_bucket || "");
       setEndpoint(config.storj_endpoint || "https://gateway.storjshare.io");
       setMaxFileSize(config.max_file_size_mb);
+      setDefaultStorageLimit(config.default_storage_limit_mb || 512);
     }
   }, [config]);
+
+  // Handle Hash Navigation
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash === "storage" || hash === "users") {
+        setActiveSection(hash as Section);
+      }
+    };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
+  // Fetch users when section changes
+  useEffect(() => {
+    if (activeSection === "users" && isAdmin) {
+      fetchUsers();
+    }
+  }, [activeSection, isAdmin]);
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const data = await adminApi.getUsers();
+      setUsers(data);
+    } catch (error) {
+      toast.error("Failed to load users");
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   // Redirect non-admins
   useEffect(() => {
@@ -51,25 +134,11 @@ export default function Admin() {
     }
   }, [user, isAdmin, authLoading, adminLoading, navigate]);
 
-  const handleTestConnection = async () => {
-    setTesting(true);
-    setTestResult(null);
-
-    const result = await testStorjConnection(accessKey, secretKey, bucket);
-    setTestResult(result);
-    setTesting(false);
-
-    if (result.success) {
-      toast.success("Connection test passed!");
-    } else {
-      toast.error(result.error || "Connection test failed");
-    }
-  };
-
-  const handleSave = async () => {
+  const handleStorageSave = async () => {
     const updates: Record<string, unknown> = {
       provider: useStorj ? "storj" : "local",
       max_file_size_mb: maxFileSize,
+      default_storage_limit_mb: defaultStorageLimit,
     };
 
     if (useStorj) {
@@ -92,6 +161,84 @@ export default function Admin() {
     }
   };
 
+  const handleTestConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+
+    const result = await testStorjConnection(accessKey, secretKey, bucket);
+    setTestResult(result);
+    setTesting(false);
+
+    if (result.success) {
+      toast.success("Connection test passed!");
+    } else {
+      toast.error(result.error || "Connection test failed");
+    }
+  };
+
+  const handleDeleteUser = async (userToDelete: User) => {
+    if (!confirm(`Are you sure you want to delete ${userToDelete.email}? This will delete ALL their videos and cannot be undone.`)) return;
+    try {
+      await adminApi.deleteUser(userToDelete.id);
+      toast.success("User deleted successfully");
+      fetchUsers();
+    } catch (error) {
+      toast.error("Failed to delete user");
+    }
+  };
+
+  const openPasswordDialog = (userToEdit: User) => {
+    setSelectedUser(userToEdit);
+    setNewPassword("");
+    setIsPasswordDialogOpen(true);
+  };
+
+  const handleChangePassword = async () => {
+    if (!selectedUser || !newPassword) return;
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    try {
+      await adminApi.updateUserPassword(selectedUser.id, newPassword);
+      toast.success("Password updated successfully");
+      setIsPasswordDialogOpen(false);
+      setNewPassword("");
+      setSelectedUser(null);
+    } catch (error) {
+      toast.error("Failed to update password");
+    }
+  };
+
+  const openQuotaDialog = (userToEdit: User) => {
+    setSelectedUser(userToEdit);
+    // Convert bytes to MB for display
+    setNewQuota(Math.round(userToEdit.storage_limit / (1024 * 1024)).toString());
+    setIsQuotaDialogOpen(true);
+  };
+
+  const handleUpdateQuota = async () => {
+    if (!selectedUser || !newQuota) return;
+    const quotaMb = parseInt(newQuota);
+    if (isNaN(quotaMb) || quotaMb < 0) {
+      toast.error("Invalid quota value");
+      return;
+    }
+
+    try {
+      const quotaBytes = quotaMb * 1024 * 1024;
+      await adminApi.updateUserQuota(selectedUser.id, quotaBytes);
+      toast.success("User quota updated");
+      setIsQuotaDialogOpen(false);
+      setNewQuota("");
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error) {
+      toast.error("Failed to update user quota");
+    }
+  };
+
   if (authLoading || adminLoading || configLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -104,203 +251,411 @@ export default function Admin() {
     return null;
   }
 
+  // Helper to format bytes
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
   return (
     <div className="min-h-screen">
       <Navbar />
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold text-white">Admin Panel</h1>
-          </div>
-          <p className="text-muted-foreground">Configure storage settings and system preferences</p>
-        </div>
+      <main className="mx-auto max-w-7xl px-4 py-8">
+        <Link to="/" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-6 w-fit">
+          <ChevronLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
 
-        <div className="space-y-6">
-          {/* Storage Provider Card */}
-          <Card className="bg-[#1d1d1f] border-white/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                {useStorj ? <Cloud className="h-5 w-5" /> : <HardDrive className="h-5 w-5" />}
-                Storage Provider
-              </CardTitle>
-              <CardDescription>
-                Choose where to store uploaded videos. STORJ provides decentralized cloud storage.
-                Local storage is used as fallback.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-white">Use STORJ S3</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Enable STORJ for decentralized storage (falls back to local storage if unavailable)
-                  </p>
-                </div>
-                <Switch checked={useStorj} onCheckedChange={setUseStorj} />
-              </div>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Sidebar */}
+          <aside className="w-full md:w-64 space-y-1">
+            <button
+              onClick={() => {
+                setActiveSection("storage");
+                window.location.hash = "storage";
+              }}
+              className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${activeSection === "storage" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
+                }`}
+            >
+              <HardDrive className="h-4 w-4" />
+              Storage Settings
+            </button>
+            <button
+              onClick={() => {
+                setActiveSection("users");
+                window.location.hash = "users";
+              }}
+              className={`flex w-full items-center gap-3 px-3 py-2 text-sm font-medium rounded-md ${activeSection === "users" ? "bg-secondary text-primary" : "hover:bg-secondary/50"
+                }`}
+            >
+              <Users className="h-4 w-4" />
+              User Management
+            </button>
+          </aside>
 
-              {useStorj && (
-                <div className="space-y-4 pt-4 border-t border-white/10">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="accessKey" className="text-white">
-                        Access Key
-                      </Label>
-                      <Input
-                        id="accessKey"
-                        value={accessKey}
-                        onChange={(e) => setAccessKey(e.target.value)}
-                        placeholder="STORJ access key"
-                        className="bg-black/20 border-white/10"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="secretKey" className="text-white">
-                        Secret Key
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="secretKey"
-                          type={showSecretKey ? "text" : "password"}
-                          value={secretKey}
-                          onChange={(e) => setSecretKey(e.target.value)}
-                          placeholder="STORJ secret key"
-                          className="bg-black/20 border-white/10 pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSecretKey(!showSecretKey)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
-                        >
-                          {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
+          {/* Content */}
+          <div className="flex-1">
+            {activeSection === "storage" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Storage Provider Card */}
+                <Card className="bg-[#1d1d1f] border-white/10">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      {useStorj ? <Cloud className="h-5 w-5" /> : <HardDrive className="h-5 w-5" />}
+                      Storage Provider
+                    </CardTitle>
+                    <CardDescription>
+                      Choose where to store uploaded videos. STORJ provides decentralized cloud storage.
+                      Local storage is used as fallback.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-white">Use STORJ S3</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Enable STORJ for decentralized storage (falls back to local storage if unavailable)
+                        </p>
                       </div>
+                      <Switch checked={useStorj} onCheckedChange={setUseStorj} />
                     </div>
-                  </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="bucket" className="text-white">
-                        Bucket Name
-                      </Label>
-                      <Input
-                        id="bucket"
-                        value={bucket}
-                        onChange={(e) => setBucket(e.target.value)}
-                        placeholder="my-video-bucket"
-                        className="bg-black/20 border-white/10"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endpoint" className="text-white">
-                        Endpoint
-                      </Label>
-                      <Input
-                        id="endpoint"
-                        value={endpoint}
-                        onChange={(e) => setEndpoint(e.target.value)}
-                        placeholder="https://gateway.storjshare.io"
-                        className="bg-black/20 border-white/10"
-                      />
-                    </div>
-                  </div>
+                    {useStorj && (
+                      <div className="space-y-4 pt-4 border-t border-white/10">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="accessKey" className="text-white">
+                              Access Key
+                            </Label>
+                            <Input
+                              id="accessKey"
+                              value={accessKey}
+                              onChange={(e) => setAccessKey(e.target.value)}
+                              placeholder="STORJ access key"
+                              className="bg-black/20 border-white/10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="secretKey" className="text-white">
+                              Secret Key
+                            </Label>
+                            <div className="relative">
+                              <Input
+                                id="secretKey"
+                                type={showSecretKey ? "text" : "password"}
+                                value={secretKey}
+                                onChange={(e) => setSecretKey(e.target.value)}
+                                placeholder="STORJ secret key"
+                                className="bg-black/20 border-white/10 pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowSecretKey(!showSecretKey)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                              >
+                                {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
 
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="outline"
-                      onClick={handleTestConnection}
-                      disabled={testing || !accessKey || !secretKey || !bucket}
-                      className="border-white/20"
-                    >
-                      {testing ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Testing...
-                        </>
-                      ) : (
-                        "Test Connection"
-                      )}
-                    </Button>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="bucket" className="text-white">
+                              Bucket Name
+                            </Label>
+                            <Input
+                              id="bucket"
+                              value={bucket}
+                              onChange={(e) => setBucket(e.target.value)}
+                              placeholder="my-video-bucket"
+                              className="bg-black/20 border-white/10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="endpoint" className="text-white">
+                              Endpoint
+                            </Label>
+                            <Input
+                              id="endpoint"
+                              value={endpoint}
+                              onChange={(e) => setEndpoint(e.target.value)}
+                              placeholder="https://gateway.storjshare.io"
+                              className="bg-black/20 border-white/10"
+                            />
+                          </div>
+                        </div>
 
-                    {testResult && (
-                      <div className="flex items-center gap-2">
-                        {testResult.success ? (
-                          <>
-                            <CheckCircle className="h-5 w-5 text-green-500" />
-                            <span className="text-green-500 text-sm">Connection successful</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-5 w-5 text-red-500" />
-                            <span className="text-red-500 text-sm">{testResult.error}</span>
-                          </>
-                        )}
+                        <div className="flex items-center gap-4">
+                          <Button
+                            variant="outline"
+                            onClick={handleTestConnection}
+                            disabled={testing || !accessKey || !secretKey || !bucket}
+                            className="border-white/20"
+                          >
+                            {testing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Testing...
+                              </>
+                            ) : (
+                              "Test Connection"
+                            )}
+                          </Button>
+
+                          {testResult && (
+                            <div className="flex items-center gap-2">
+                              {testResult.success ? (
+                                <>
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                                  <span className="text-green-500 text-sm">Connection successful</span>
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="h-5 w-5 text-red-500" />
+                                  <span className="text-red-500 text-sm">{testResult.error}</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                  </div>
+                  </CardContent>
+                </Card>
+
+                {/* Upload Settings Card */}
+                <Card className="bg-[#1d1d1f] border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white">Upload Settings</CardTitle>
+                    <CardDescription>Configure file upload limits and restrictions</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex flex-wrap gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="maxFileSize" className="text-white">
+                          Max Single File Size (MB)
+                        </Label>
+                        <Input
+                          id="maxFileSize"
+                          type="number"
+                          min={1}
+                          max={50000}
+                          value={maxFileSize}
+                          onChange={(e) => setMaxFileSize(Number(e.target.value))}
+                          className="bg-black/20 border-white/10 w-48"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="defaultStorageLimit" className="text-white">
+                          Default User Storage Limit (MB)
+                        </Label>
+                        <Input
+                          id="defaultStorageLimit"
+                          type="number"
+                          min={1}
+                          value={defaultStorageLimit}
+                          onChange={(e) => setDefaultStorageLimit(Number(e.target.value))}
+                          className="bg-black/20 border-white/10 w-48"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-white">Allowed File Types</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {config?.allowed_types?.map((type) => (
+                          <span
+                            key={type}
+                            className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm"
+                          >
+                            {type.split("/")[1]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Save Button */}
+                <div className="flex justify-end">
+                  <Button onClick={handleStorageSave} disabled={saving} className="min-w-32">
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Upload Settings Card */}
-          <Card className="bg-[#1d1d1f] border-white/10">
-            <CardHeader>
-              <CardTitle className="text-white">Upload Settings</CardTitle>
-              <CardDescription>Configure file upload limits and restrictions</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="maxFileSize" className="text-white">
-                  Maximum File Size (MB)
-                </Label>
-                <Input
-                  id="maxFileSize"
-                  type="number"
-                  min={1}
-                  max={5000}
-                  value={maxFileSize}
-                  onChange={(e) => setMaxFileSize(Number(e.target.value))}
-                  className="bg-black/20 border-white/10 w-32"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Maximum size for a single video upload
-                </p>
               </div>
+            )}
 
-              <div className="space-y-2">
-                <Label className="text-white">Allowed File Types</Label>
-                <div className="flex flex-wrap gap-2">
-                  {config?.allowed_types?.map((type) => (
-                    <span
-                      key={type}
-                      className="px-3 py-1 bg-primary/20 text-primary rounded-full text-sm"
-                    >
-                      {type.split("/")[1]}
-                    </span>
-                  ))}
-                </div>
+            {activeSection === "users" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <Card className="bg-[#1d1d1f] border-white/10">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <Users className="h-5 w-5" />
+                      Users
+                    </CardTitle>
+                    <CardDescription>
+                      Manage registered users, reset passwords, and remove accounts.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingUsers ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : users.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">No users found.</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-white/10 hover:bg-white/5">
+                            <TableHead className="text-muted-foreground">Email</TableHead>
+                            <TableHead className="text-muted-foreground">Joined</TableHead>
+                            <TableHead className="text-muted-foreground">Storage</TableHead>
+                            <TableHead className="text-muted-foreground">Roles</TableHead>
+                            <TableHead className="text-right text-muted-foreground">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {users.map((u) => (
+                            <TableRow key={u.id} className="border-white/10 hover:bg-white/5">
+                              <TableCell className="font-medium text-white">
+                                {u.email}
+                                {u.id === user?.id && <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">You</span>}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {formatDistance(new Date(u.created_at), new Date(), { addSuffix: true })}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {formatBytes(u.storage_used)} / {formatBytes(u.storage_limit)}
+                                <div className="w-24 h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
+                                  <div
+                                    className="h-full bg-primary"
+                                    style={{ width: `${Math.min(100, (u.storage_used / u.storage_limit) * 100)}%` }}
+                                  />
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {u.roles.join(", ")}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Edit Quota"
+                                    className="hover:bg-white/10 hover:text-white"
+                                    onClick={() => openQuotaDialog(u)}
+                                  >
+                                    <Database className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Change Password"
+                                    className="hover:bg-white/10 hover:text-white"
+                                    onClick={() => openPasswordDialog(u)}
+                                  >
+                                    <Key className="h-4 w-4" />
+                                  </Button>
+                                  {u.id !== user?.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Delete User"
+                                      className="hover:bg-red-500/20 hover:text-red-500 text-red-400"
+                                      onClick={() => handleDeleteUser(u)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving} className="min-w-32">
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
+            )}
           </div>
         </div>
       </main>
+
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="bg-[#1d1d1f] border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter a new password for {selectedUser?.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Minimum 8 characters"
+                className="bg-black/20 border-white/10"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)} className="border-white/10 hover:bg-white/5 hover:text-white">Cancel</Button>
+            <Button onClick={handleChangePassword}>Save Password</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isQuotaDialogOpen} onOpenChange={setIsQuotaDialogOpen}>
+        <DialogContent className="bg-[#1d1d1f] border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Edit Storage Quota</DialogTitle>
+            <DialogDescription>
+              Set a custom storage limit for {selectedUser?.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quota">Storage Limit (MB)</Label>
+              <Input
+                id="quota"
+                type="number"
+                min={0}
+                value={newQuota}
+                onChange={(e) => setNewQuota(e.target.value)}
+                placeholder="e.g. 1024 for 1GB"
+                className="bg-black/20 border-white/10"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter 0 to disable uploads for this user.
+                1024 MB = 1 GB.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsQuotaDialogOpen(false)} className="border-white/10 hover:bg-white/5 hover:text-white">Cancel</Button>
+            <Button onClick={handleUpdateQuota}>Save Limit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
