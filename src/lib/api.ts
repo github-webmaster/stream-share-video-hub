@@ -31,6 +31,7 @@ export interface StorageConfig {
   max_file_size_mb: number;
   allowed_types: string[];
   default_storage_limit_mb?: number;
+  video_expiration_days?: number;
 }
 
 export interface UserQuota {
@@ -74,6 +75,7 @@ export interface User {
   storage_limit: number;
   upload_count: number;
   roles: string[];
+  video_expiration_days?: number | null;
 }
 
 const getToken = () => localStorage.getItem(TOKEN_KEY) || "";
@@ -374,6 +376,16 @@ export const adminApi = {
       {
         method: "PATCH",
         body: JSON.stringify({ storageLimitBytes }),
+      },
+      true
+    );
+  },
+  async updateUserExpiration(userId: string, videoExpirationDays: number | null): Promise<void> {
+    await apiFetch(
+      `/api/admin/users/${userId}/expiration`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ videoExpirationDays }),
       },
       true
     );

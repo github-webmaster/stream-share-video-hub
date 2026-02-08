@@ -372,6 +372,117 @@ const deleteFromStorj = async (config, key) => {
   await client.send(command);
 };
 
+// Get video expiration days for a user
+// Returns: user-specific override > global config > 60 (default)
+// 0 means no expiration, null means use global default
+const getVideoExpirationDays = async (userId) => {
+  try {
+    // First check user-specific override
+    const { rows: userRows } = await pool.query(
+      "SELECT video_expiration_days FROM public.user_quotas WHERE user_id = $1",
+      [userId]
+    );
+    
+    const userExpiry = userRows[0]?.video_expiration_days;
+    
+    // If user has specific override (including 0 for 'never'), use it
+    if (userExpiry !== null && userExpiry !== undefined) {
+      return userExpiry;
+    }
+    
+    // Otherwise use global config
+    const config = await getStorageConfig();
+    if (config?.video_expiration_days !== null && config?.video_expiration_days !== undefined) {
+      return config.video_expiration_days;
+    }
+    
+    // Default to 60 days
+    return 60;
+  } catch (error) {
+    console.error("Error getting video expiration days:", error);
+    return 60; // Default
+  }
+};
+
+// Clean up expired videos (uses expires_at column)
+const cleanupExpiredVideos = async () => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, user_id, storage_path, size FROM public.videos WHERE expires_at IS NOT NULL AND expires_at < now()"
+    );
+
+    if (rows.length === 0) {
+      logger.info("No expired videos to clean up");
+      return { deleted: 0, freedBytes: 0 };
+    }
+
+    logger.info({ count: rows.length }, "Starting expired video cleanup");
+    let totalFreedBytes = 0;
+    const config = await getStorageConfig();
+
+    for (const video of rows) {
+      try {
+        // Delete from storage
+        if (video.storage_path.startsWith("storj://")) {
+          const match = video.storage_path.match(/^storj:\/\/[^\/]+\/(.+)$/);
+          if (match && config?.provider === "storj") {
+            await deleteFromStorj(config, match[1]);
+          }
+        } else if (video.storage_path.startsWith("https://link.storjshare.io/")) {
+          if (config?.provider === "storj" && config.storj_bucket) {
+            const key = getStorjKeyFromUrl(video.storage_path, config.storj_bucket);
+            if (key) {
+              await deleteFromStorj(config, key);
+            }
+          }
+        } else if (!video.storage_path.startsWith("http")) {
+          const filePath = safeJoin(STORAGE_BASE, video.storage_path);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+
+        // Delete video record
+        await pool.query("DELETE FROM public.videos WHERE id = $1", [video.id]);
+        
+        if (video.size) {
+          totalFreedBytes += video.size;
+          // Update user quota
+          await pool.query(
+            "UPDATE public.user_quotas SET storage_used_bytes = GREATEST(0, storage_used_bytes - $1) WHERE user_id = $2",
+            [video.size, video.user_id]
+          );
+        }
+      } catch (videoErr) {
+        console.error(`Failed to cleanup expired video ${video.id}:`, videoErr.message);
+      }
+    }
+
+    logger.info({ deleted: rows.length, freedBytes: totalFreedBytes }, "Expired video cleanup complete");
+    return { deleted: rows.length, freedBytes: totalFreedBytes };
+  } catch (error) {
+    console.error("Error during expired video cleanup:", error);
+    return { deleted: 0, freedBytes: 0 };
+  }
+};
+
+// Run expired video cleanup on startup and every hour
+const startExpirationCleanup = () => {
+  // Run immediately on startup
+  setTimeout(() => {
+    cleanupExpiredVideos().catch(err => console.error("Startup cleanup failed:", err));
+  }, 10000); // Wait 10 seconds after startup
+  
+  // Then run every hour
+  setInterval(() => {
+    cleanupExpiredVideos().catch(err => console.error("Scheduled cleanup failed:", err));
+  }, 60 * 60 * 1000); // Every hour
+};
+
+// Start cleanup scheduler
+startExpirationCleanup();
+
+// Legacy cleanup function - kept for backward compatibility
 // Clean up videos older than 90 days for non-admin users
 const cleanupOldVideos = async (userId) => {
   try {
@@ -874,11 +985,12 @@ app.get("/api/admin/users", authRequired, requireAdmin, async (req, res) => {
         COALESCE(q.storage_used_bytes, 0) as storage_used,
         COALESCE(q.storage_limit_bytes, 0) as storage_limit,
         COALESCE(q.upload_count, 0) as upload_count,
+        q.video_expiration_days,
         array_remove(array_agg(r.role), NULL) as roles
       FROM public.users u
       LEFT JOIN public.user_quotas q ON u.id = q.user_id
       LEFT JOIN public.user_roles r ON u.id = r.user_id
-      GROUP BY u.id, u.email, u.created_at, q.storage_used_bytes, q.storage_limit_bytes, q.upload_count
+      GROUP BY u.id, u.email, u.created_at, q.storage_used_bytes, q.storage_limit_bytes, q.upload_count, q.video_expiration_days
       ORDER BY u.created_at DESC
     `);
     return res.json({ users: rows });
@@ -1006,6 +1118,30 @@ app.patch("/api/admin/users/:id/quota", authRequired, requireAdmin, async (req, 
   } catch (error) {
     console.error("[admin] Failed to update user quota:", error);
     return res.status(500).json({ error: "Failed to update user quota" });
+  }
+});
+
+// Update user's video expiration days
+// null = use global default, 0 = never expire, > 0 = specific days
+app.patch("/api/admin/users/:id/expiration", authRequired, requireAdmin, async (req, res) => {
+  const { videoExpirationDays } = req.body;
+  
+  // Allow null (use global default), 0 (never expire), or positive numbers
+  if (videoExpirationDays !== null && (typeof videoExpirationDays !== 'number' || videoExpirationDays < 0)) {
+    return res.status(400).json({ error: "Invalid expiration value. Use null for default, 0 for never, or positive number for days." });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO public.user_quotas (user_id, video_expiration_days, storage_used_bytes, storage_limit_bytes, upload_count) 
+       VALUES ($1, $2, 0, 536870912, 0) 
+       ON CONFLICT (user_id) DO UPDATE SET video_expiration_days = $2, updated_at = now()`,
+      [req.params.id, videoExpirationDays]
+    );
+    return res.json({ success: true, video_expiration_days: videoExpirationDays });
+  } catch (error) {
+    console.error("[admin] Failed to update user expiration:", error);
+    return res.status(500).json({ error: "Failed to update user expiration" });
   }
 });
 
@@ -1196,8 +1332,9 @@ app.delete("/api/videos/:id", authRequired, async (req, res) => {
       [req.params.id, req.user.id]
     );
     const video = rows[0];
+    // Return success even if video not found (idempotent delete)
     if (!video) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.json({ success: true });
     }
 
     const config = await getStorageConfig();
@@ -1736,9 +1873,14 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
 
     // Create video record
     const title = path.basename(session.filename || "Untitled");
+    
+    // Calculate expiration date based on user/global settings
+    const expirationDays = await getVideoExpirationDays(req.user.id);
+    const expiresAt = expirationDays > 0 ? new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString() : null;
+    
     const { rows: videoRows } = await pool.query(
-      "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [title, session.filename, storagePath, session.share_id, req.user.id, session.file_size]
+      "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+      [title, session.filename, storagePath, session.share_id, req.user.id, session.file_size, expiresAt]
     );
 
     const videoId = videoRows[0].id;
@@ -2058,9 +2200,14 @@ app.post("/api/upload", authRequired, (req, res, next) => {
     }
 
     debugLog(`[upload] Inserting video record with path: ${storagePath}`);
+    
+    // Calculate expiration date based on user/global settings
+    const expirationDays = await getVideoExpirationDays(req.user.id);
+    const expiresAt = expirationDays > 0 ? new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString() : null;
+    
     const { rows } = await pool.query(
-      "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, share_id",
-      [title, req.file.originalname, storagePath, shareId, req.user.id, req.file.size]
+      "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, share_id",
+      [title, req.file.originalname, storagePath, shareId, req.user.id, req.file.size, expiresAt]
     );
 
     // Storage was reserved earlier in a transaction; only increment upload_count now

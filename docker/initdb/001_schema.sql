@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.storage_config (
   backup_enabled BOOLEAN DEFAULT false,
   backup_schedule TEXT DEFAULT '0 2 * * *',
   backup_retention_days INTEGER DEFAULT 30,
+  video_expiration_days INTEGER DEFAULT 60,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
@@ -57,6 +58,8 @@ ALTER TABLE public.storage_config
 ADD COLUMN IF NOT EXISTS backup_retention_days INTEGER DEFAULT 30;
 ALTER TABLE public.storage_config 
 ADD COLUMN IF NOT EXISTS default_storage_limit_mb INTEGER DEFAULT 512;
+ALTER TABLE public.storage_config 
+ADD COLUMN IF NOT EXISTS video_expiration_days INTEGER DEFAULT 60;
 
 CREATE TABLE IF NOT EXISTS public.user_quotas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -64,9 +67,14 @@ CREATE TABLE IF NOT EXISTS public.user_quotas (
   storage_used_bytes BIGINT NOT NULL DEFAULT 0,
   storage_limit_bytes BIGINT NOT NULL DEFAULT 536870912,
   upload_count INTEGER NOT NULL DEFAULT 0,
+  video_expiration_days INTEGER DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
+
+-- Ensure video_expiration_days column exists in user_quotas
+ALTER TABLE public.user_quotas 
+ADD COLUMN IF NOT EXISTS video_expiration_days INTEGER DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS public.videos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,8 +87,16 @@ CREATE TABLE IF NOT EXISTS public.videos (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   size BIGINT,
-  visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'private'))
+  visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'private')),
+  expires_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Ensure expires_at column exists in videos
+ALTER TABLE public.videos 
+ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+
+-- Index for expired videos cleanup
+CREATE INDEX IF NOT EXISTS idx_videos_expires_at ON public.videos (expires_at) WHERE expires_at IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_videos_user_id ON public.videos (user_id);
 CREATE INDEX IF NOT EXISTS idx_videos_share_id ON public.videos (share_id);

@@ -21,7 +21,8 @@ import {
   Trash2,
   Key,
   ChevronLeft,
-  Database
+  Database,
+  Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { adminApi, User, BackupFile } from "@/lib/api";
@@ -51,7 +52,7 @@ export default function Admin() {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { config, loading: configLoading, saving, updateConfig, testStorjConnection } = useStorageConfig();
 
-  const [activeSection, setActiveSection] = useState<Section>("storage");
+  const [activeSection, setActiveSection] = useState<Section>("users");
 
   // Storage State
   const [useStorj, setUseStorj] = useState(false);
@@ -61,6 +62,7 @@ export default function Admin() {
   const [endpoint, setEndpoint] = useState("https://gateway.storjshare.io");
   const [maxFileSize, setMaxFileSize] = useState(500);
   const [defaultStorageLimit, setDefaultStorageLimit] = useState(512);
+  const [videoExpirationDays, setVideoExpirationDays] = useState(60);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
@@ -73,6 +75,10 @@ export default function Admin() {
   // Password Dialog
   const [newPassword, setNewPassword] = useState("");
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+
+  // Expiration Dialog
+  const [newExpiration, setNewExpiration] = useState<string>("");
+  const [isExpirationDialogOpen, setIsExpirationDialogOpen] = useState(false);
 
   // Quota Dialog
   const [newQuota, setNewQuota] = useState("");
@@ -93,6 +99,7 @@ export default function Admin() {
       setEndpoint(config.storj_endpoint || "https://gateway.storjshare.io");
       setMaxFileSize(config.max_file_size_mb);
       setDefaultStorageLimit(config.default_storage_limit_mb || 512);
+      setVideoExpirationDays(config.video_expiration_days ?? 60);
     }
   }, [config]);
 
@@ -168,6 +175,7 @@ export default function Admin() {
       provider: useStorj ? "storj" : "local",
       max_file_size_mb: maxFileSize,
       default_storage_limit_mb: defaultStorageLimit,
+      video_expiration_days: videoExpirationDays,
     };
 
     if (useStorj) {
@@ -265,6 +273,38 @@ export default function Admin() {
       fetchUsers();
     } catch (error) {
       toast.error("Failed to update user quota");
+    }
+  };
+
+  const openExpirationDialog = (userToEdit: User) => {
+    setSelectedUser(userToEdit);
+    // Show empty for "use default", otherwise show the value (0 = never)
+    setNewExpiration(userToEdit.video_expiration_days !== null && userToEdit.video_expiration_days !== undefined 
+      ? userToEdit.video_expiration_days.toString() 
+      : "");
+    setIsExpirationDialogOpen(true);
+  };
+
+  const handleUpdateExpiration = async () => {
+    if (!selectedUser) return;
+    
+    // Empty string = use global default (null), otherwise parse as number
+    const expirationValue = newExpiration.trim() === "" ? null : parseInt(newExpiration);
+    
+    if (expirationValue !== null && (isNaN(expirationValue) || expirationValue < 0)) {
+      toast.error("Invalid expiration value. Use empty for default, 0 for never, or days.");
+      return;
+    }
+
+    try {
+      await adminApi.updateUserExpiration(selectedUser.id, expirationValue);
+      toast.success(expirationValue === null ? "Using global default" : expirationValue === 0 ? "Videos will never expire" : `Videos expire after ${expirationValue} days`);
+      setIsExpirationDialogOpen(false);
+      setNewExpiration("");
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error) {
+      toast.error("Failed to update expiration");
     }
   };
 
@@ -543,6 +583,24 @@ export default function Admin() {
                           className="bg-black/20 border-white/10 w-48"
                         />
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="videoExpirationDays" className="text-white">
+                          Video Expiration (Days)
+                        </Label>
+                        <Input
+                          id="videoExpirationDays"
+                          type="number"
+                          min={0}
+                          placeholder="0 = never expire"
+                          value={videoExpirationDays}
+                          onChange={(e) => setVideoExpirationDays(Number(e.target.value))}
+                          className="bg-black/20 border-white/10 w-48"
+                        />
+                        <p className="text-xs text-white/50">
+                          Videos will auto-delete after this many days. Set to 0 for no expiration.
+                        </p>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -660,6 +718,15 @@ export default function Admin() {
                                     onClick={() => openQuotaDialog(u)}
                                   >
                                     <Database className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title={`Video Expiration (${u.video_expiration_days === null ? 'default' : u.video_expiration_days === 0 ? 'never' : u.video_expiration_days + 'd'})`}
+                                    className="hover:bg-white/10 hover:text-white"
+                                    onClick={() => openExpirationDialog(u)}
+                                  >
+                                    <Clock className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -850,6 +917,39 @@ export default function Admin() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsQuotaDialogOpen(false)} className="border-white/10 hover:bg-white/5 hover:text-white">Cancel</Button>
             <Button onClick={handleUpdateQuota}>Save Limit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isExpirationDialogOpen} onOpenChange={setIsExpirationDialogOpen}>
+        <DialogContent className="bg-[#1d1d1f] border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Edit Video Expiration</DialogTitle>
+            <DialogDescription>
+              Set custom video expiration for {selectedUser?.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="expiration">Expiration (Days)</Label>
+              <Input
+                id="expiration"
+                type="number"
+                min={0}
+                value={newExpiration}
+                onChange={(e) => setNewExpiration(e.target.value)}
+                placeholder="Empty = global default"
+                className="bg-black/20 border-white/10"
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to use global default ({videoExpirationDays} days).<br/>
+                Enter 0 for videos that never expire.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExpirationDialogOpen(false)} className="border-white/10 hover:bg-white/5 hover:text-white">Cancel</Button>
+            <Button onClick={handleUpdateExpiration}>Save Expiration</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
