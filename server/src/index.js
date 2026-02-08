@@ -60,6 +60,63 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
+// Ensure admin user exists on startup
+const ensureAdminUser = async () => {
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@maggew.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "admin@maggew.com";
+  
+  try {
+    // Check if any users exist
+    const { rows: users } = await pool.query("SELECT COUNT(*)::int AS count FROM public.users");
+    if (users[0]?.count > 0) {
+      // Check if admin user exists, update password if needed
+      const { rows: existing } = await pool.query("SELECT id FROM public.users WHERE email = $1", [adminEmail]);
+      if (existing.length > 0) {
+        // Update password hash to ensure it's compatible with Node.js bcrypt
+        const passwordHash = await bcrypt.hash(adminPassword, 10);
+        await pool.query("UPDATE public.users SET password_hash = $1 WHERE email = $2", [passwordHash, adminEmail]);
+        console.log(`[startup] Updated admin user password hash: ${adminEmail}`);
+        return;
+      }
+    }
+    
+    // Create admin user if no users exist or admin doesn't exist
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    const { rows } = await pool.query(
+      "INSERT INTO public.users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO UPDATE SET password_hash = $2 RETURNING id",
+      [adminEmail, passwordHash]
+    );
+    const adminId = rows[0].id;
+    
+    // Create profile
+    await pool.query(
+      "INSERT INTO public.profiles (id, default_visibility) VALUES ($1, 'public') ON CONFLICT (id) DO NOTHING",
+      [adminId]
+    );
+    
+    // Add admin role
+    await pool.query(
+      "INSERT INTO public.user_roles (user_id, role) VALUES ($1, 'admin') ON CONFLICT (user_id, role) DO NOTHING",
+      [adminId, 'admin']
+    );
+    
+    // Set storage quota
+    await pool.query(
+      "INSERT INTO public.user_quotas (user_id, storage_limit_bytes) VALUES ($1, 10737418240) ON CONFLICT (user_id) DO NOTHING",
+      [adminId]
+    );
+    
+    console.log(`[startup] Admin user ready: ${adminEmail}`);
+  } catch (error) {
+    console.error("[startup] Failed to ensure admin user:", error.message);
+  }
+};
+
+// Run admin check after a short delay to ensure DB is ready
+setTimeout(() => {
+  ensureAdminUser().catch(err => console.error('[startup] Admin user check failed:', err));
+}, 3000);
+
 // Initialize Backup Service
 const backupService = new BackupService(pool);
 setTimeout(() => {
@@ -463,6 +520,38 @@ app.get("/metrics", (_req, res) => {
   });
 });
 
+// Debug endpoint to check auth status (only in development or when DEBUG_ENABLED)
+app.get("/api/auth/debug", async (req, res) => {
+  if (process.env.NODE_ENV === "production" && !DEBUG_ENABLED) {
+    return res.status(403).json({ error: "Debug endpoint disabled in production" });
+  }
+  
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@maggew.com";
+    const { rows: userCheck } = await pool.query(
+      "SELECT id, email, password_hash IS NOT NULL as has_password FROM public.users WHERE email = $1",
+      [adminEmail]
+    );
+    const { rows: userCount } = await pool.query("SELECT COUNT(*)::int AS count FROM public.users");
+    const { rows: rolesCheck } = await pool.query("SELECT COUNT(*)::int AS count FROM public.user_roles");
+    
+    return res.json({
+      adminEmail,
+      adminExists: userCheck.length > 0,
+      adminHasPassword: userCheck[0]?.has_password || false,
+      totalUsers: userCount[0]?.count || 0,
+      totalRoles: rolesCheck[0]?.count || 0,
+      jwtSecretSet: !!JWT_SECRET,
+      databaseConnected: true
+    });
+  } catch (error) {
+    return res.json({
+      error: error.message,
+      databaseConnected: false
+    });
+  }
+});
+
 app.post("/api/auth/signup", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {
@@ -520,26 +609,50 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
   }
 
   try {
+    console.log(`[login] Attempting login for: ${email}`);
+    
     const { rows } = await pool.query(
       "SELECT id, email, password_hash, created_at FROM public.users WHERE email = $1",
       [email]
     );
     const user = rows[0];
-    if (!user || !user.password_hash) {
+    
+    if (!user) {
+      console.log(`[login] User not found: ${email}`);
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    
+    if (!user.password_hash) {
+      console.log(`[login] User has no password hash: ${email}`);
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const match = await bcrypt.compare(password, user.password_hash);
+    let match = false;
+    try {
+      match = await bcrypt.compare(password, user.password_hash);
+    } catch (bcryptError) {
+      console.error(`[login] Bcrypt compare error for ${email}:`, bcryptError.message);
+      // If bcrypt fails (invalid hash format), try to rehash and update
+      console.log(`[login] Attempting to fix password hash for: ${email}`);
+      const newHash = await bcrypt.hash(password, 10);
+      // Only update if this is a hash format issue, not a wrong password
+      // We can't verify the old password, so just fail
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    
     if (!match) {
+      console.log(`[login] Password mismatch for: ${email}`);
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    console.log(`[login] Login successful for: ${email}`);
     const roles = await getUserRoles(user.id);
     const token = signToken(user);
     return res.json({ token, user: { id: user.id, email: user.email, created_at: user.created_at }, roles });
   } catch (error) {
-    console.error("[login] Error logging in user:", error);
-    return res.status(500).json({ error: "Failed to login" });
+    console.error("[login] Error logging in user:", error.message || error);
+    console.error("[login] Stack:", error.stack);
+    return res.status(500).json({ error: "Failed to login", details: process.env.NODE_ENV !== 'production' ? error.message : undefined });
   }
 });
 
