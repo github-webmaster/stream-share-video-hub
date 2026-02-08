@@ -17,60 +17,8 @@ import compression from "compression";
 import pino from "pino";
 import BackupService from './services/backupService.js';
 
-// --- Backup API Routes ---
 
-app.get("/api/admin/backups", authRequired, requireAdmin, async (_req, res) => {
-  try {
-    const defaultSchedule = '0 2 * * *';
-    const result = await pool.query(
-      "SELECT backup_enabled, backup_schedule, backup_retention_days FROM public.storage_config LIMIT 1"
-    );
-    const config = result.rows[0] || { backup_enabled: false, backup_schedule: defaultSchedule, backup_retention_days: 30 };
-    const files = await backupService.listBackups();
 
-    return res.json({ config, files });
-  } catch (error) {
-    console.error("[backup] Failed to fetch info:", error);
-    return res.status(500).json({ error: "Failed to fetch backup info" });
-  }
-});
-
-app.post("/api/admin/backups/config", authRequired, requireAdmin, async (req, res) => {
-  const { enabled, schedule, retentionDays } = req.body;
-  try {
-    // Upsert config
-    await pool.query(`
-      INSERT INTO public.storage_config (id, backup_enabled, backup_schedule, backup_retention_days)
-      VALUES (1, $1, $2, $3)
-      ON CONFLICT (id) DO UPDATE SET
-        backup_enabled = EXCLUDED.backup_enabled,
-        backup_schedule = EXCLUDED.backup_schedule,
-        backup_retention_days = EXCLUDED.backup_retention_days,
-        updated_at = NOW()
-    `, [enabled, schedule, retentionDays]);
-
-    await backupService.refreshSchedule();
-    return res.json({ success: true });
-  } catch (error) {
-    console.error("[backup] Failed to update config:", error);
-    return res.status(500).json({ error: "Failed to update backup config" });
-  }
-});
-
-app.post("/api/admin/backups/run", authRequired, requireAdmin, async (_req, res) => {
-  try {
-    const result = await backupService.runBackup();
-    if (result.success) {
-      return res.json({ success: true, file: result.file });
-    } else {
-      return res.status(500).json({ error: result.message });
-    }
-  } catch (error) {
-    return res.status(500).json({ error: "Internal server error during backup" });
-  }
-});
-import compression from "compression";
-import pino from "pino";
 
 dotenv.config();
 
@@ -709,6 +657,59 @@ app.post("/api/admin/toggle-debug", authRequired, requireAdmin, async (req, res)
     return res.json({ debugEnabled: runtimeDebugEnabled });
   } catch (error) {
     return res.status(500).json({ error: "Failed to toggle debug" });
+  }
+});
+
+// --- Backup API Routes ---
+
+app.get("/api/admin/backups", authRequired, requireAdmin, async (_req, res) => {
+  try {
+    const defaultSchedule = '0 2 * * *';
+    const result = await pool.query(
+      "SELECT backup_enabled, backup_schedule, backup_retention_days FROM public.storage_config LIMIT 1"
+    );
+    const config = result.rows[0] || { backup_enabled: false, backup_schedule: defaultSchedule, backup_retention_days: 30 };
+    const files = await backupService.listBackups();
+
+    return res.json({ config, files });
+  } catch (error) {
+    console.error("[backup] Failed to fetch info:", error);
+    return res.status(500).json({ error: "Failed to fetch backup info" });
+  }
+});
+
+app.post("/api/admin/backups/config", authRequired, requireAdmin, async (req, res) => {
+  const { enabled, schedule, retentionDays } = req.body;
+  try {
+    // Upsert config
+    await pool.query(`
+      INSERT INTO public.storage_config (id, backup_enabled, backup_schedule, backup_retention_days)
+      VALUES (1, $1, $2, $3)
+      ON CONFLICT (id) DO UPDATE SET
+        backup_enabled = EXCLUDED.backup_enabled,
+        backup_schedule = EXCLUDED.backup_schedule,
+        backup_retention_days = EXCLUDED.backup_retention_days,
+        updated_at = NOW()
+    `, [enabled, schedule, retentionDays]);
+
+    await backupService.refreshSchedule();
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[backup] Failed to update config:", error);
+    return res.status(500).json({ error: "Failed to update backup config" });
+  }
+});
+
+app.post("/api/admin/backups/run", authRequired, requireAdmin, async (_req, res) => {
+  try {
+    const result = await backupService.runBackup();
+    if (result.success) {
+      return res.json({ success: true, file: result.file });
+    } else {
+      return res.status(500).json({ error: result.message });
+    }
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error during backup" });
   }
 });
 
