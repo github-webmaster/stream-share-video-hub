@@ -4,7 +4,6 @@ import { VideoCard } from "../components/VideoCard";
 import { videoApi, type Video } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { useUpload } from "../hooks/useUpload";
-import { useAdmin } from "../hooks/useAdmin";
 import { useUserQuota } from "../hooks/useUserQuota";
 import { toast } from "sonner";
 import { Loader2, Upload, Play } from "lucide-react";
@@ -20,8 +19,6 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const { user } = useAuth();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isAdmin } = useAdmin();
   const { refetch: refetchQuota } = useUserQuota();
   const { uploads, isUploading, uploadFiles, removeUpload, clearUploads } = useUpload();
   const inputRef = useRef<HTMLInputElement>(null);
