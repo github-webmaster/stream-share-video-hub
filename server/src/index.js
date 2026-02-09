@@ -377,20 +377,22 @@ const deleteFromStorj = async (config, key) => {
 // 0 means no expiration, null means use global default
 const getVideoExpirationDays = async (userId) => {
   try {
-    // First check user-specific override
-    const { rows: userRows } = await pool.query(
-      "SELECT video_expiration_days FROM public.user_quotas WHERE user_id = $1",
-      [userId]
-    );
-    
-    const userExpiry = userRows[0]?.video_expiration_days;
-    
-    // If user has specific override (including 0 for 'never'), use it
-    if (userExpiry !== null && userExpiry !== undefined) {
-      return userExpiry;
+    // First check user-specific override (column may not exist yet)
+    try {
+      const { rows: userRows } = await pool.query(
+        "SELECT video_expiration_days FROM public.user_quotas WHERE user_id = $1",
+        [userId]
+      );
+      const userExpiry = userRows[0]?.video_expiration_days;
+      if (userExpiry !== null && userExpiry !== undefined) {
+        return userExpiry;
+      }
+    } catch (colErr) {
+      // Column doesn't exist yet - skip user override
+      debugLog("[expiration] video_expiration_days column not found in user_quotas, using global/default");
     }
     
-    // Otherwise use global config
+    // Check global config (column may not exist yet)
     const config = await getStorageConfig();
     if (config?.video_expiration_days !== null && config?.video_expiration_days !== undefined) {
       return config.video_expiration_days;
@@ -407,9 +409,18 @@ const getVideoExpirationDays = async (userId) => {
 // Clean up expired videos (uses expires_at column)
 const cleanupExpiredVideos = async () => {
   try {
-    const { rows } = await pool.query(
-      "SELECT id, user_id, storage_path, size FROM public.videos WHERE expires_at IS NOT NULL AND expires_at < now()"
-    );
+    // Check if expires_at column exists before querying
+    let rows;
+    try {
+      const result = await pool.query(
+        "SELECT id, user_id, storage_path, size FROM public.videos WHERE expires_at IS NOT NULL AND expires_at < now()"
+      );
+      rows = result.rows;
+    } catch (colErr) {
+      // expires_at column doesn't exist yet - nothing to clean up
+      debugLog("[expiration] expires_at column not found in videos table, skipping cleanup");
+      return { deleted: 0, freedBytes: 0 };
+    }
 
     if (rows.length === 0) {
       logger.info("No expired videos to clean up");
@@ -1157,12 +1168,23 @@ app.patch("/api/admin/users/:id/expiration", authRequired, requireAdmin, async (
   }
 
   try {
-    await pool.query(
-      `INSERT INTO public.user_quotas (user_id, video_expiration_days, storage_used_bytes, storage_limit_bytes, upload_count) 
-       VALUES ($1, $2, 0, 536870912, 0) 
-       ON CONFLICT (user_id) DO UPDATE SET video_expiration_days = $2, updated_at = now()`,
-      [req.params.id, videoExpirationDays]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO public.user_quotas (user_id, video_expiration_days, storage_used_bytes, storage_limit_bytes, upload_count) 
+         VALUES ($1, $2, 0, 536870912, 0) 
+         ON CONFLICT (user_id) DO UPDATE SET video_expiration_days = $2, updated_at = now()`,
+        [req.params.id, videoExpirationDays]
+      );
+    } catch (colErr) {
+      // Column doesn't exist yet - run ALTER TABLE and retry
+      await pool.query("ALTER TABLE public.user_quotas ADD COLUMN IF NOT EXISTS video_expiration_days INTEGER DEFAULT NULL");
+      await pool.query(
+        `INSERT INTO public.user_quotas (user_id, video_expiration_days, storage_used_bytes, storage_limit_bytes, upload_count) 
+         VALUES ($1, $2, 0, 536870912, 0) 
+         ON CONFLICT (user_id) DO UPDATE SET video_expiration_days = $2, updated_at = now()`,
+        [req.params.id, videoExpirationDays]
+      );
+    }
     return res.json({ success: true, video_expiration_days: videoExpirationDays });
   } catch (error) {
     console.error("[admin] Failed to update user expiration:", error);
@@ -1900,13 +1922,24 @@ app.post("/api/upload/complete/:sessionId", authRequired, async (req, res) => {
     const title = path.basename(session.filename || "Untitled");
     
     // Calculate expiration date based on user/global settings
-    const expirationDays = await getVideoExpirationDays(req.user.id);
-    const expiresAt = expirationDays > 0 ? new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString() : null;
-    
-    const { rows: videoRows } = await pool.query(
-      "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-      [title, session.filename, storagePath, session.share_id, req.user.id, session.file_size, expiresAt]
-    );
+    let videoRows;
+    try {
+      const expirationDays = await getVideoExpirationDays(req.user.id);
+      const expiresAt = expirationDays > 0 ? new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString() : null;
+      const result = await pool.query(
+        "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+        [title, session.filename, storagePath, session.share_id, req.user.id, session.file_size, expiresAt]
+      );
+      videoRows = result.rows;
+    } catch (insertErr) {
+      // Fallback: expires_at column may not exist yet
+      debugLog("[chunked-upload] Falling back to INSERT without expires_at");
+      const result = await pool.query(
+        "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        [title, session.filename, storagePath, session.share_id, req.user.id, session.file_size]
+      );
+      videoRows = result.rows;
+    }
 
     const videoId = videoRows[0].id;
 
@@ -2227,13 +2260,24 @@ app.post("/api/upload", authRequired, (req, res, next) => {
     debugLog(`[upload] Inserting video record with path: ${storagePath}`);
     
     // Calculate expiration date based on user/global settings
-    const expirationDays = await getVideoExpirationDays(req.user.id);
-    const expiresAt = expirationDays > 0 ? new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString() : null;
-    
-    const { rows } = await pool.query(
-      "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, share_id",
-      [title, req.file.originalname, storagePath, shareId, req.user.id, req.file.size, expiresAt]
-    );
+    let rows;
+    try {
+      const expirationDays = await getVideoExpirationDays(req.user.id);
+      const expiresAt = expirationDays > 0 ? new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString() : null;
+      const result = await pool.query(
+        "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, share_id",
+        [title, req.file.originalname, storagePath, shareId, req.user.id, req.file.size, expiresAt]
+      );
+      rows = result.rows;
+    } catch (insertErr) {
+      // Fallback: expires_at column may not exist yet
+      debugLog("[upload] Falling back to INSERT without expires_at");
+      const result = await pool.query(
+        "INSERT INTO public.videos (title, filename, storage_path, share_id, user_id, size) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, share_id",
+        [title, req.file.originalname, storagePath, shareId, req.user.id, req.file.size]
+      );
+      rows = result.rows;
+    }
 
     // Storage was reserved earlier in a transaction; only increment upload_count now
     debugLog(`[upload] Incrementing upload_count for user ${req.user.id}`);
